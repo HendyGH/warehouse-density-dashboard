@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Density &amp; Segregation Map</title>
+
+    <link rel="manifest" href="./manifest.webmanifest">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+    <script src="./lib/tailwind.js"></script>
+    <script src="./lib/html2canvas.min.js"></script>
+    <script src="./lib/chart.umd.min.js"></script>
+    <script src="./lib/chartjs-plugin-datalabels.min.js"></script>
+    <script src="./lib/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans p-4 md:p-8 min-h-screen relative">
+
+    <div class="max-w-[1600px] mx-auto pb-12">
+
+        <div class="mb-6 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div class="flex items-start gap-3">
+                <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                </span>
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-900">Data Synchronization</h2>
+                    <p class="text-sm text-slate-500">Auto-saved locally, works offline. Add "Before" data to generate comparison metrics.</p>
+                </div>
+            </div>
+            <div class="inline-flex rounded-xl bg-slate-100 p-1 self-start">
+                <button id="btnModePaste" onclick="setInputMode('paste')" class="rounded-lg px-4 py-1.5 text-sm font-semibold text-slate-600">Paste</button>
+                <button id="btnModeUpload" onclick="setInputMode('upload')" class="rounded-lg px-4 py-1.5 text-sm font-semibold text-slate-600">Upload File</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+            <div class="space-y-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="flex items-center gap-2 text-sm font-semibold text-slate-900"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Current Status</h3>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">1. Current Bin Master</label>
+                    <textarea id="rawDataInput" class="paste-pane w-full h-20 p-2.5 border border-slate-200 rounded-xl focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30 outline-none font-mono text-[10px] whitespace-pre"></textarea>
+                    <div class="upload-pane hidden" data-target="rawDataInput">
+                        <div class="dropzone cursor-pointer border-2 border-dashed border-slate-300 rounded-xl p-5 text-center hover:border-blue-400 hover:bg-blue-50/40">
+                            <p class="text-xs font-semibold text-slate-600">Drop .xlsx / .csv / .txt here, or click to browse</p>
+                            <p class="dz-name text-[11px] mt-1 text-slate-400">No file selected</p>
+                            <input type="file" accept=".xlsx,.xls,.csv,.txt,.tsv" class="hidden">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">2. Current Detailed Stock</label>
+                    <textarea id="detailedDataInput" class="paste-pane w-full h-20 p-2.5 border border-slate-200 rounded-xl focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30 outline-none font-mono text-[10px] whitespace-pre"></textarea>
+                    <div class="upload-pane hidden" data-target="detailedDataInput">
+                        <div class="dropzone cursor-pointer border-2 border-dashed border-slate-300 rounded-xl p-5 text-center hover:border-blue-400 hover:bg-blue-50/40">
+                            <p class="text-xs font-semibold text-slate-600">Drop .xlsx / .csv / .txt here, or click to browse</p>
+                            <p class="dz-name text-[11px] mt-1 text-slate-400">No file selected</p>
+                            <input type="file" accept=".xlsx,.xls,.csv,.txt,.tsv" class="hidden">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4 bg-slate-50 p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="flex items-center gap-2 text-sm font-semibold text-slate-600"><span class="w-2 h-2 rounded-full bg-slate-400"></span> Before Scenario <span class="font-normal text-slate-400">(for comparison)</span></h3>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">3. Before Bin Master</label>
+                    <textarea id="baseRawDataInput" class="paste-pane w-full h-20 p-2.5 border border-slate-200 bg-white rounded-xl focus:border-slate-400 focus:ring-2 focus:ring-slate-400/30 outline-none font-mono text-[10px] whitespace-pre" placeholder="Paste 'Before' master data here to compare..."></textarea>
+                    <div class="upload-pane hidden" data-target="baseRawDataInput">
+                        <div class="dropzone cursor-pointer border-2 border-dashed border-slate-300 rounded-xl p-5 text-center bg-white hover:border-slate-500 hover:bg-slate-50">
+                            <p class="text-xs font-semibold text-slate-600">Drop .xlsx / .csv / .txt here, or click to browse</p>
+                            <p class="dz-name text-[11px] mt-1 text-slate-400">No file selected</p>
+                            <input type="file" accept=".xlsx,.xls,.csv,.txt,.tsv" class="hidden">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">4. Before Detailed Stock</label>
+                    <textarea id="baseDetailedDataInput" class="paste-pane w-full h-20 p-2.5 border border-slate-200 bg-white rounded-xl focus:border-slate-400 focus:ring-2 focus:ring-slate-400/30 outline-none font-mono text-[10px] whitespace-pre" placeholder="Paste 'Before' detailed stock here to compare..."></textarea>
+                    <div class="upload-pane hidden" data-target="baseDetailedDataInput">
+                        <div class="dropzone cursor-pointer border-2 border-dashed border-slate-300 rounded-xl p-5 text-center bg-white hover:border-slate-500 hover:bg-slate-50">
+                            <p class="text-xs font-semibold text-slate-600">Drop .xlsx / .csv / .txt here, or click to browse</p>
+                            <p class="dz-name text-[11px] mt-1 text-slate-400">No file selected</p>
+                            <input type="file" accept=".xlsx,.xls,.csv,.txt,.tsv" class="hidden">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 mb-5">
+            <button onclick="processAllData()" class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700">
+                Generate Map &amp; Analytics
+            </button>
+            <button onclick="saveSnapshot()" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                Save Snapshot
+            </button>
+            <button onclick="clearMemory()" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                Clear Saved Data
+            </button>
+            <div id="dataStatus" class="hidden"></div>
+        </div>
+
+        <div class="mb-8">
+            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5">Snapshot History <span class="font-normal normal-case tracking-normal text-slate-400">— use any as the "Before" baseline</span></p>
+            <div id="snapshotList" class="flex flex-col gap-2 max-w-2xl"></div>
+        </div>
+
+        <div id="trendCard" class="mb-8 hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="text-sm font-semibold text-slate-900 mb-4">Snapshot Trends <span class="font-normal text-slate-400">— utilization &amp; contamination over time</span></h3>
+            <div class="relative h-64"><canvas id="trendChartCanvas"></canvas></div>
+        </div>
+
+        <div id="exportableDashboard" class="rounded-2xl">
+            <header class="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Warehouse Density Mapping</h1>
+                    <p class="text-slate-500 mt-1">Storage utilization, contamination risk, and zone-level analytics.</p>
+                </div>
+                <div class="flex flex-wrap gap-2.5">
+                    <button onclick="toggleAnalytics()" id="btnToggleAnalytics" class="hidden inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                        <span id="textToggleAnalytics">Hide Analytics</span>
+                    </button>
+                    <button onclick="toggleFilters()" id="btnToggleFilters" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                        <svg id="iconToggleFilters" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        <span id="textToggleFilters">Hide Filters</span>
+                    </button>
+                    <button onclick="exportMisplacedCSV()" id="btnExportCSV" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Export CSV
+                    </button>
+                    <button onclick="exportMisplacedXLSX()" id="btnExportXLSX" class="inline-flex items-center gap-2 rounded-xl bg-green-700 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-800">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Export Excel
+                    </button>
+                    <button onclick="downloadScreenshot()" id="btnScreenshot" class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
+                        Download Report
+                    </button>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col relative overflow-hidden h-full">
+                    <div class="absolute left-0 top-4 bottom-4 w-1 rounded-full bg-slate-300"></div>
+                    <div class="min-h-[34px] pl-1">
+                        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Capacity</div>
+                        <div class="text-[10px] font-medium text-slate-300 uppercase tracking-wide">Master Bins</div>
+                    </div>
+                    <div class="flex items-end justify-between mt-3 mb-3 flex-1 pl-1">
+                        <span class="text-3xl font-bold tracking-tight text-slate-900" id="metricBins">-</span>
+                        <span id="deltaBins" class="text-sm font-semibold text-slate-400 px-2 py-1 rounded-lg bg-slate-100">No Base</span>
+                    </div>
+                    <div class="pt-3 border-t border-transparent flex justify-between items-center h-[28px] invisible">
+                        <span class="text-[10px]">-</span><span class="text-sm">-</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col relative overflow-hidden h-full">
+                    <div class="absolute left-0 top-4 bottom-4 w-1 rounded-full bg-slate-400"></div>
+                    <div class="min-h-[34px] pl-1">
+                        <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Storage Used</div>
+                        <div class="text-[10px] font-medium text-slate-300 uppercase tracking-wide">Without GR-ZONE</div>
+                    </div>
+                    <div class="flex items-end justify-between mt-3 mb-3 flex-1 pl-1">
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-3xl font-bold tracking-tight text-slate-900" id="metricPallets">-</span>
+                            <span class="text-lg font-semibold text-slate-500" id="metricPalletsPct"></span>
+                        </div>
+                        <span id="deltaPallets" class="text-sm font-semibold text-slate-400 px-2 py-1 rounded-lg bg-slate-100">No Base</span>
+                    </div>
+                    <div class="pt-3 border-t border-slate-100 flex justify-between items-center h-[28px] pl-1">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Empty Capacity</span>
+                        <span class="text-sm font-bold text-emerald-500" id="metricEmptyNormal">-</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-blue-200 shadow-sm flex flex-col relative overflow-hidden h-full">
+                    <div class="absolute left-0 top-4 bottom-4 w-1 rounded-full bg-blue-500"></div>
+                    <div class="min-h-[34px] pl-1">
+                        <div class="text-[11px] font-semibold text-blue-600 uppercase tracking-wider">Projected Load</div>
+                        <div class="text-[10px] font-medium text-blue-300 uppercase tracking-wide">With GR-ZONE</div>
+                    </div>
+                    <div class="flex items-end justify-between mt-3 mb-3 flex-1 pl-1">
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-3xl font-bold tracking-tight text-slate-900" id="metricProj">-</span>
+                            <span class="text-lg font-semibold text-blue-500" id="metricProjPct"></span>
+                        </div>
+                        <span id="deltaProj" class="text-sm font-semibold text-slate-400 px-2 py-1 rounded-lg bg-slate-100">No Base</span>
+                    </div>
+                    <div class="pt-3 border-t border-blue-50 flex justify-between items-center h-[28px] pl-1">
+                        <span class="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Projected Empty</span>
+                        <span class="text-sm font-bold text-emerald-500" id="metricEmptyProj">-</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col relative overflow-hidden h-full">
+                    <div class="absolute left-0 top-4 bottom-4 w-1 rounded-full bg-rose-400"></div>
+                    <div class="min-h-[34px] pl-1">
+                        <div class="text-[11px] font-semibold text-rose-500 uppercase tracking-wider">Contaminated Bins</div>
+                        <div class="text-[10px] font-medium text-slate-300 uppercase tracking-wide">Mixed Category</div>
+                    </div>
+                    <div class="flex items-end justify-between mt-3 mb-3 flex-1 pl-1">
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-3xl font-bold tracking-tight text-rose-600" id="metricContam">-</span>
+                            <span class="text-lg font-semibold text-rose-400" id="metricContamPct"></span>
+                        </div>
+                        <span id="deltaContam" class="text-sm font-semibold text-slate-400 px-2 py-1 rounded-lg bg-slate-100">No Base</span>
+                    </div>
+                    <div class="pt-3 border-t border-transparent flex justify-between items-center h-[28px] invisible">
+                        <span class="text-[10px]">-</span><span class="text-sm">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="grZoneBanner" class="hidden bg-white p-5 rounded-2xl shadow-sm border border-blue-200 mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-base font-semibold text-blue-700 flex items-center gap-2">
+                        <span class="flex items-center justify-center w-7 h-7 bg-blue-50 rounded-lg">
+                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                        </span>
+                        GR-ZONE Area
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-1 ml-9">Inbound items pending putaway. 1 Valid HU = 1 Pallet.</p>
+                    <div id="grHighValueAlert" class="mt-2 ml-9 flex items-center gap-3"></div>
+                </div>
+                <div class="flex flex-wrap gap-2.5 items-center" id="grBadgesContainer">
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-6 hidden" id="chartCardContainer">
+                <div class="flex items-start justify-between mb-5">
+                    <h3 class="text-sm font-semibold text-slate-900">Zone Capacity Analytics</h3>
+                </div>
+
+                <div id="chartNoDataMsg" class="w-full py-8 text-center text-sm font-semibold text-slate-400 hidden">
+                    Add "Before" data to unlock comparison charts.
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" id="chartsGrid">
+
+                    <div class="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 select-none">
+                            <p class="text-[11px] font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-blue-400 inline-block flex-shrink-0"></span>
+                                Before vs Current
+                            </p>
+                        </div>
+                        <div id="panelCompare" class="p-3">
+                            <div class="relative h-48">
+                                <canvas id="compareChartCanvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 select-none">
+                            <p class="text-[11px] font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-orange-400 inline-block flex-shrink-0"></span>
+                                Net Change
+                            </p>
+                        </div>
+                        <div id="panelDelta" class="p-3">
+                            <div class="relative h-48">
+                                <canvas id="deltaChartCanvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 select-none">
+                            <p class="text-[11px] font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-rose-400 inline-block flex-shrink-0"></span>
+                                Contamination
+                            </p>
+                        </div>
+                        <div id="panelContam" class="p-3">
+                            <div class="relative h-48">
+                                <canvas id="contamChartCanvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="filterBarContainer" class="flex flex-col gap-4 mb-6 bg-white p-4 lg:p-5 rounded-2xl shadow-sm border border-slate-200 transition-all duration-300 origin-top">
+                <div class="flex flex-wrap items-end gap-4">
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Search by Bin</label>
+                        <input type="text" id="filterBin" onkeyup="applyFilters()" placeholder="e.g. O5-A1..." class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 outline-none text-sm">
+                    </div>
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Filter by Zone</label>
+                        <select id="filterZone" onchange="applyFilters()" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 outline-none text-sm bg-white cursor-pointer">
+                            <option value="ALL">All Zones</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="w-full pt-4 border-t border-slate-100">
+                    <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5">Quick Filters</p>
+                    <div class="flex flex-wrap gap-2">
+                        <label class="inline-flex items-center cursor-pointer select-none group">
+                            <input type="checkbox" id="chkContam" onchange="applyFilters(event)" class="sr-only peer">
+                            <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150
+                                bg-white text-slate-500 border-slate-200
+                                peer-checked:bg-rose-500 peer-checked:text-white peer-checked:border-rose-500
+                                hover:border-rose-300 hover:text-rose-500">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                Contaminated Only
+                            </span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer select-none group">
+                            <input type="checkbox" id="chkHighValue" onchange="applyFilters(event)" class="sr-only peer">
+                            <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150
+                                bg-white text-slate-500 border-slate-200
+                                peer-checked:bg-purple-600 peer-checked:text-white peer-checked:border-purple-600
+                                hover:border-purple-300 hover:text-purple-600">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+                                High-Value Only
+                            </span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer select-none group">
+                            <input type="checkbox" id="chkEmptyOnly" onchange="applyFilters(event)" class="sr-only peer">
+                            <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150
+                                bg-white text-slate-500 border-slate-200
+                                peer-checked:bg-slate-600 peer-checked:text-white peer-checked:border-slate-600
+                                hover:border-slate-400 hover:text-slate-600">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                                Empty Only
+                            </span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer select-none group">
+                            <input type="checkbox" id="chkHideEmpty" onchange="applyFilters(event)" class="sr-only peer">
+                            <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150
+                                bg-white text-slate-500 border-slate-200
+                                peer-checked:bg-emerald-600 peer-checked:text-white peer-checked:border-emerald-600
+                                hover:border-emerald-300 hover:text-emerald-600">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                                Hide Empty
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-4 mb-8">
+                <div class="flex items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                    <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-r border-slate-200 pr-4">Density</span>
+                    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-600"><div class="w-3.5 h-3.5 rounded bg-emerald-500"></div> 0-33%</div>
+                    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-600"><div class="w-3.5 h-3.5 rounded bg-amber-500"></div> 34-66%</div>
+                    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-600"><div class="w-3.5 h-3.5 rounded bg-rose-500"></div> 67-100%</div>
+                </div>
+
+                <div class="flex items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex-wrap">
+                    <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-r border-slate-200 pr-4">Material Keys</span>
+                    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-600"><div class="w-4 h-4 rounded border-2 border-slate-800 bg-slate-400 text-center leading-none text-[8px] font-black pt-[1px] text-slate-900">RM</div> Raw Mat</div>
+                    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-600"><div class="w-4 h-4 rounded border-2 border-slate-800 bg-orange-500 text-center leading-none text-[8px] font-black pt-[1px] text-slate-900">BT</div> Battery</div>
+                    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-600"><div class="w-4 h-4 rounded border-2 border-slate-800 bg-sky-500 text-center leading-none text-[8px] font-black pt-[1px] text-slate-900">PK</div> Packing</div>
+                    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-600 ml-2">
+                        <div class="w-4 h-4 rounded bg-slate-200 border border-slate-300 flex items-center justify-center">
+                            <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+                        </div>
+                        PCBA
+                    </div>
+                    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                        <div class="w-4 h-4 rounded bg-slate-200 border border-slate-300 flex items-center justify-center">
+                            <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        </div>
+                        Phone
+                    </div>
+                </div>
+            </div>
+
+            <div id="heatmapContainer" class="heatmap-grid mb-4">
+                <div class="text-slate-400 italic col-span-full">Load data to visualize the warehouse...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="drilldownModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+            <div class="p-5 border-b border-slate-200 flex justify-between items-start bg-slate-50">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900" id="modalTitle">Aisle Details</h3>
+                    <p class="text-sm text-slate-500 mt-1">Click on any bin row to view exact contents.</p>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="overflow-x-auto overflow-y-auto p-0 flex-1 bg-white">
+                <table class="min-w-full divide-y divide-slate-200 text-sm whitespace-nowrap">
+                    <thead class="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                        <tr>
+                            <th class="px-2 py-3 w-8"></th>
+                            <th class="px-4 py-3 text-left font-semibold text-slate-600 border-b border-slate-200">Storage Bin</th>
+                            <th class="px-4 py-3 text-left font-semibold text-slate-600 border-b border-slate-200">Designated Cat</th>
+                            <th class="px-4 py-3 text-center font-semibold text-slate-600 border-b border-slate-200">Pallets</th>
+                            <th class="px-4 py-3 text-center font-bold text-slate-800 bg-slate-200/50 border-b border-slate-200">RAW MAT</th>
+                            <th class="px-4 py-3 text-center font-bold text-slate-800 bg-orange-50/50 border-b border-slate-200">BATTERY</th>
+                            <th class="px-4 py-3 text-center font-bold text-slate-800 bg-sky-50/50 border-b border-slate-200">PACKING</th>
+                            <th class="px-4 py-3 text-center font-semibold text-slate-600 bg-amber-50 border-b-2 border-amber-200">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalTableBody" class="bg-white divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="./js/app.js"></script>
+</body>
+</html>

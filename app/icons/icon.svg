@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#2563eb"/>
+  <g transform="translate(96 104)">
+    <!-- warehouse roof -->
+    <path d="M160 0 L312 70 L8 70 Z" fill="#ffffff"/>
+    <!-- density grid (heatmap cells) -->
+    <g>
+      <rect x="36"  y="96"  width="76" height="60" rx="8" fill="#10b981"/>
+      <rect x="124" y="96"  width="76" height="60" rx="8" fill="#f59e0b"/>
+      <rect x="212" y="96"  width="76" height="60" rx="8" fill="#f43f5e"/>
+      <rect x="36"  y="168" width="76" height="60" rx="8" fill="#f59e0b"/>
+      <rect x="124" y="168" width="76" height="60" rx="8" fill="#f43f5e"/>
+      <rect x="212" y="168" width="76" height="60" rx="8" fill="#10b981"/>
+      <rect x="36"  y="240" width="76" height="60" rx="8" fill="#f43f5e"/>
+      <rect x="124" y="240" width="76" height="60" rx="8" fill="#10b981"/>
+      <rect x="212" y="240" width="76" height="60" rx="8" fill="#f59e0b"/>
+    </g>
+  </g>
+</svg>
