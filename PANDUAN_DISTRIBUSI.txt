@@ -1,0 +1,60 @@
+===================================================================
+ PANDUAN DISTRIBUSI AMAN - WAREHOUSE DASHBOARD (Portable .exe)
+ Tujuan: mencegah .exe di-copy department lain / ide dicuri
+ Dibuat: 16 Juli 2026, 11:16 (Asia/Bangkok)
+===================================================================
+
+PRINSIP UTAMA
+-------------
+Akar masalah = .exe diletakkan di folder share yang semua orang bisa
+baca. Solusinya: PISAHKAN "aplikasi" dari "data".
+
+  - DATA (JSON) -> boleh di Y: (sudah aman: login akun + tanda tangan HMAC).
+  - APLIKASI (.exe) -> JANGAN ditaruh di folder share terbuka.
+
+Kalau .exe tidak pernah nangkring di folder yang bisa diakses banyak
+orang, potensi copy-paste langsung hilang di akar.
+
+CARA DISTRIBUSI YANG DISARANKAN
+-------------------------------
+1. Simpan MASTER .exe di tempat pribadi kamu (PC kamu / OneDrive pribadi /
+   flashdisk), BUKAN di Y: yang umum.
+
+2. Sebar .exe hanya ke PC orang-orang tertentu yang memang berhak:
+   - Copy langsung ke folder lokal PC mereka (mis. C:\WarehouseApp\).
+   - Atau kirim japri (chat pribadi / email ke orang itu saja).
+   Jangan pakai link/folder yang bisa dilihat satu department.
+
+3. Semua PC itu tetap diarahkan ke folder DATA yang sama di Y:
+   (saat pertama buka, aplikasi menanyakan lokasi folder database).
+   Jadi datanya tetap terpusat & sinkron, hanya aplikasinya yang lokal.
+
+4. Catat siapa saja yang sudah dikasih .exe (daftar penerima).
+   Kalau ada yang keluar/pindah dept, minta hapus aplikasinya.
+
+KALAU TERPAKSA HARUS DI DRIVE JARINGAN
+--------------------------------------
+Kalau tidak memungkinkan copy ke tiap PC dan .exe HARUS di Y::
+  - Taruh di SUBFOLDER yang sesempit mungkin (idealnya folder tim kamu,
+    mis. Y:\Store Dept\03. HENDY\...), bukan root yang umum.
+  - Beri nama file yang tidak mencolok (hindari kata yang menggoda
+    orang untuk mencoba, mis. jangan "Dashboard Keren.exe").
+  - Sadari: ini hanya menyembunyikan, bukan mengunci. Siapa pun yang
+    punya akses baca ke folder itu tetap bisa menyalin.
+
+SAAT ADA UPDATE (VERSI BARU)
+----------------------------
+  - Data & akun di Y: TIDAK terpengaruh update (file terpisah dari .exe).
+  - Cukup ganti file .exe di tiap PC penerima dengan versi baru.
+  - Simpan histori versi di tempat pribadi kamu (mis. v1.0, v1.1).
+
+CATATAN JUJUR (BATASAN)
+-----------------------
+  - Distribusi ke PC tertentu = mengurangi paparan, bukan mengunci total.
+    Orang yang sudah dikasih .exe secara teknis masih bisa menyalinnya.
+    Karena itu kasih hanya ke orang yang kamu percaya.
+  - Kalau nanti butuh proteksi lebih kuat (kunci ke username/PC, atau
+    mengacak/obfuscate logika biar tak bisa dibaca), fitur itu bisa
+    ditambahkan menyusul.
+===================================================================
+

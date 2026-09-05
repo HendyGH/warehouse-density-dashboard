@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "electronics-demo",
+  "name": "Electronics demo",
+  "categories": [
+    { "id": "raw-material", "label": "RAW MATERIAL", "display": "RAW MAT", "aliases": ["RAW", "RAW MATERIAL", "RAW MAT"] },
+    { "id": "battery", "label": "BATTERY", "display": "BATTERY", "aliases": ["BAT", "BATTERY"] },
+    { "id": "packing", "label": "PACKING", "display": "PACKING", "aliases": ["PACK", "PACKING"] }
+  ],
+  "snapshotCategories": ["packing", "battery", "raw-material"],
+  "classifiers": [
+    { "id": "pcba", "tags": ["pcba", "high-value"], "match": { "any": [{ "field": "pn", "op": "startsWith", "value": "52" }] } },
+    { "id": "phone", "tags": ["phone", "high-value"], "match": { "any": [{ "field": "pn", "op": "startsWith", "value": "90" }] } },
+    { "id": "lcd", "tags": ["lcd", "display", "high-value"], "match": { "any": [{ "field": "pn", "op": "startsWith", "value": "57" }, { "field": "desc", "op": "contains", "value": "display" }], "exclude": [{ "field": "desc", "op": "contains", "value": "underdisplay" }] } }
+  ],
+  "specialLocations": [
+    { "id": "gr-zone", "label": "GR-ZONE", "aliases": ["GR", "GR-ZONE"], "tags": ["receiving", "inbound"] }
+  ]
+}
+

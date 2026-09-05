@@ -1,0 +1,2 @@
+Jalankan: npm run tauri icon path/ke/logo.png  -> ini akan mengisi folder ini dengan icon.ico, icon.png, dll.
+

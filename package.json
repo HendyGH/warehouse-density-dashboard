@@ -1,29 +1,13 @@
 {
-  "name": "warehouse-density-desktop",
+  "name": "warehouse-dashboard",
+  "private": true,
   "version": "1.0.0",
-  "description": "Desktop (Windows .exe) build of the Warehouse Density & Segregation Map.",
-  "main": "main.js",
-  "author": "chenh",
-  "license": "MIT",
   "scripts": {
-    "start": "electron .",
-    "dist": "electron-builder --win portable"
+    "tauri": "tauri",
+    "test": "node tests/profile.test.js"
   },
   "devDependencies": {
-    "electron": "^31.7.7",
-    "electron-builder": "^24.13.3"
-  },
-  "build": {
-    "appId": "com.chenh.warehousedensity",
-    "productName": "Warehouse Density Map",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "app/**/*", "package.json"],
-    "win": {
-      "target": "portable",
-      "icon": "build/icon.ico"
-    },
-    "portable": {
-      "artifactName": "WarehouseDensityMap-${version}-portable.exe"
-    }
+    "@tauri-apps/cli": "^2"
   }
 }
+
