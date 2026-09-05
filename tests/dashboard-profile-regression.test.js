@@ -6,21 +6,15 @@ const vm = require('vm');
 const root = path.join(__dirname, '..');
 const electronics = JSON.parse(fs.readFileSync(path.join(root, 'src', 'profiles', 'electronics-demo.json'), 'utf8'));
 const profileSource = fs.readFileSync(path.join(root, 'src', 'profile.js'), 'utf8');
+const segregationSource = fs.readFileSync(path.join(root, 'src', 'app', 'segregation.js'), 'utf8');
 const context = { console, setTimeout, window: {}, fetch: async () => ({ ok: true, json: async () => electronics }) };
 vm.runInNewContext(profileSource, context, { filename: 'profile.js' });
+vm.runInNewContext(segregationSource, context, { filename: 'segregation.js' });
 
 function rows(file) {
   return fs.readFileSync(path.join(root, 'tests', 'fixtures', file), 'utf8')
     .split(/\r?\n/).filter(Boolean).slice(1)
     .map(line => line.split('\t'));
-}
-
-function isContaminated(profile, row) {
-  const category = profile.categoryId(row.binCat);
-  if (category === 'raw-material') return row.batQty > 0 || row.packQty > 0;
-  if (category === 'battery') return row.rmQty > 0 || row.packQty > 0;
-  if (category === 'packing') return row.rmQty > 0 || row.batQty > 0;
-  return false;
 }
 
 (async () => {
@@ -49,8 +43,8 @@ function isContaminated(profile, row) {
   assert.strictEqual(hus.size, 4);
   assert.deepStrictEqual(totals, { pcba: 10, phone: 5, lcd: 7 });
   assert.strictEqual(profile.classifierTags({ pn: '521234', desc: 'PCBA fabricated board' }).includes('pcba'), true);
-  assert.strictEqual(isContaminated(profile, master[1]), true);
-  assert.strictEqual(isContaminated(profile, master[3]), false);
+  assert.strictEqual(context.window.WarehouseApp.getSegregationViolations(profile, master[1]).length > 0, true);
+  assert.strictEqual(context.window.WarehouseApp.getSegregationViolations(profile, master[3]).length, 0);
   console.log('dashboard profile regression fixture passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });
 

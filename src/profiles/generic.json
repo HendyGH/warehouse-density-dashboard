@@ -2,11 +2,14 @@
   "schemaVersion": 1,
   "id": "generic",
   "name": "Generic Warehouse",
+  "unknownCategoryPolicy": "preserve",
   "categories": [
     { "id": "general", "label": "GENERAL", "display": "General", "aliases": ["GENERAL"] }
   ],
   "snapshotCategories": ["general"],
   "classifiers": [],
-  "specialLocations": []
+  "specialLocations": [],
+  "segregation": { "enabled": false, "rules": [] },
+  "modules": { "density": true, "snapshots": true, "segregation": false, "putaway": false, "actionCenter": false, "highValueTracking": false, "npi": false, "floorSheet": false, "lab": false }
 }
 

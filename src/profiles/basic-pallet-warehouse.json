@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "basic-pallet-warehouse",
+  "name": "Basic Pallet Warehouse",
+  "unknownCategoryPolicy": "preserve",
+  "categories": [
+    { "id": "general", "label": "GENERAL", "display": "General", "aliases": ["GENERAL"], "style": { "tone": "slate", "shortLabel": "GN" } },
+    { "id": "returns", "label": "RETURNS", "display": "Returns", "aliases": ["RETURN", "RETURNS"], "style": { "tone": "amber", "shortLabel": "RT" } }
+  ],
+  "snapshotCategories": ["general", "returns"],
+  "classifiers": [],
+  "specialLocations": [
+    { "id": "receiving", "label": "Receiving", "aliases": ["INBOUND", "RECEIVING"], "type": "receiving", "tags": ["receiving"] },
+    { "id": "returns", "label": "Returns", "aliases": ["RETURNS-HOLD"], "type": "returns", "tags": ["returns"] }
+  ],
+  "segregation": { "enabled": false, "rules": [] },
+  "modules": { "density": true, "snapshots": true, "segregation": false, "putaway": false, "actionCenter": false, "highValueTracking": false, "npi": false, "floorSheet": false, "lab": false },
+  "zoneDetection": { "mode": "delimiter", "delimiter": "-" }
+}
+

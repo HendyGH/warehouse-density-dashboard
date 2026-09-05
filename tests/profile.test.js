@@ -5,6 +5,7 @@ const vm = require('vm');
 
 const electronics = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'src', 'profiles', 'electronics-demo.json'), 'utf8'));
 const generic = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'src', 'profiles', 'generic.json'), 'utf8'));
+const profileDirectory = path.join(__dirname, '..', 'src', 'profiles');
 
 assert.strictEqual(electronics.schemaVersion, 1);
 assert.strictEqual(electronics.categories.find(c => c.id === 'raw-material').aliases.includes('RAW'), true);
@@ -41,6 +42,10 @@ vm.runInNewContext(profileSource, context, { filename: 'profile.js' });
     exclude: [{ field: 'desc', op: 'contains', value: 'underdisplay' }]
   }), true);
   assert.doesNotThrow(() => profile.validate(generic));
+  fs.readdirSync(profileDirectory).filter(name => name.endsWith('.json')).forEach(name => {
+    const builtin = JSON.parse(fs.readFileSync(path.join(profileDirectory, name), 'utf8'));
+    assert.doesNotThrow(() => profile.validate(builtin), name);
+  });
   context.fetch = async () => ({ ok: true, json: async () => ({ schemaVersion: 1, id: 'invalid', categories: [], classifiers: [], specialLocations: [] }) });
   await assert.rejects(() => profile.load('./profiles/custom-invalid.json'), /validation failed/);
   assert.throws(() => profile.validate({ schemaVersion: 1, id: 'bad', categories: [], classifiers: [], specialLocations: [] }), /validation failed/);
@@ -74,6 +79,27 @@ vm.runInNewContext(profileSource, context, { filename: 'profile.js' });
     schemaVersion: 1, id: 'bad-operator',
     categories: [{ id: 'general', label: 'GENERAL', aliases: ['GENERAL'] }], classifiers: [{ id: 'x', tags: [], match: { any: [{ field: 'pn', op: 'startsWitht', value: '1' }] } }], specialLocations: []
   }), /match\.any\[0\]\.op is unsupported/);
+  assert.throws(() => profile.validate({
+    schemaVersion: 1, id: 'case-id-collision',
+    categories: [{ id: 'battery', label: 'Battery', aliases: ['BAT'] }, { id: 'BATTERY', label: 'Other', aliases: ['OTHER'] }], classifiers: [], specialLocations: []
+  }), /category identifier collision/);
+  assert.throws(() => profile.validate({
+    schemaVersion: 1, id: 'id-label-collision',
+    categories: [{ id: 'battery', label: 'Battery', aliases: [] }, { id: 'other', label: 'Other', aliases: ['BATTERY'] }], classifiers: [], specialLocations: []
+  }), /category alias collision.*BATTERY/);
+  assert.throws(() => profile.validate({
+    schemaVersion: 1, id: 'special-id-collision',
+    categories: [{ id: 'general', label: 'General', aliases: ['GENERAL'] }], classifiers: [],
+    specialLocations: [{ id: 'Receiving', label: 'Receiving', aliases: [] }, { id: 'RECEIVING', label: 'Other', aliases: [] }]
+  }), /special location identifier collision/);
+  assert.throws(() => profile.validate({
+    schemaVersion: 1, id: 'bad-regex', categories: [{ id: 'general', label: 'General', aliases: ['GENERAL'] }],
+    classifiers: [{ id: 'bad', tags: [], match: { any: [{ field: 'pn', op: 'regex', value: '[' }] } }], specialLocations: []
+  }), /regex is invalid/);
+  assert.throws(() => profile.validate({
+    schemaVersion: 1, id: 'bad-field', categories: [{ id: 'general', label: 'General', aliases: ['GENERAL'] }],
+    classifiers: [{ id: 'bad', tags: [], match: { any: [{ field: 'unknown', op: 'contains', value: 'x' }] } }], specialLocations: []
+  }), /field is unsupported/);
   assert.throws(() => profile.validate({
     schemaVersion: 1,
     id: 'bad-match',

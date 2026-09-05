@@ -2,10 +2,17 @@
 <html lang="en">
 <head>
     <script src="profile.js"></script>
+    <script src="app/segregation.js"></script>
+    <script src="app/mappings.js"></script>
+    <script src="app/zone-detection.js"></script>
+    <script src="app/modules.js"></script>
+    <script src="app/storage.js"></script>
+    <script src="app/profile-manager.js"></script>
+    <script src="app/onboarding.js"></script>
     <script src="tauri_boot.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Warehouse Dashboard v35</title>
+    <title>Warehouse Dashboard v2.0.0</title>
 <style id="offline-utility-css">
 *{box-sizing:border-box}html{line-height:1.5;-webkit-text-size-adjust:100%}body{margin:0}button,input,select,textarea{font:inherit;color:inherit}button{background:none}table{border-collapse:collapse}svg{display:block}
 .-translate-y-1\/2{transform:translateY(-50%)}
@@ -1620,6 +1627,7 @@
         <button type="button" class="app-view-tab" data-view="data" onclick="setAppView('data')">Data</button>
         <button type="button" class="app-view-tab" data-view="dashboard" onclick="setAppView('dashboard')">Dashboard</button>
         <button type="button" class="app-view-tab" data-view="lab" onclick="setAppView('lab')">Lab</button>
+        <button type="button" class="app-view-tab" onclick="openProfileDiagnostics()">Profile</button>
     </nav>
     <div class="w-full mx-auto pb-12">
         <div id="viewData" class="app-view">
@@ -2434,7 +2442,7 @@
 
         Chart.register(ChartDataLabels);
 
-        const APP_VERSION = 'v35';
+        const APP_VERSION = 'v2.0.0';
         let STORAGE_BIN_GR = 'GR-ZONE';
         const INPUT_AUTOSAVE_KEY = 'warehouseInputAutoSave_v35';
         const TREND_STORAGE_KEY = 'warehouseTrendSnapshots_v35';
@@ -2453,12 +2461,34 @@
         const qs = (id) => document.getElementById(id);
         let npiEditIndex = -1;
         let draggedDashSection = null;
-        let SNAPSHOT_CATS = ['PACKING', 'BATTERY', 'RAW MATERIAL'];
+        let SNAPSHOT_CATS = [];
 
         function profileCategoryId(value) {
             return window.WarehouseProfile && typeof window.WarehouseProfile.categoryId === 'function'
                 ? window.WarehouseProfile.categoryId(value)
                 : String(value || '').trim().toLowerCase();
+        }
+
+        function getCategoryById(id) {
+            return window.WarehouseProfile && typeof window.WarehouseProfile.getCategoryById === 'function'
+                ? window.WarehouseProfile.getCategoryById(id) : null;
+        }
+
+        function resolveCategory(value) {
+            return window.WarehouseProfile && typeof window.WarehouseProfile.resolveCategory === 'function'
+                ? window.WarehouseProfile.resolveCategory(value) : null;
+        }
+
+        function getCategoryId(value) { return profileCategoryId(value); }
+        function getCategoryLabel(value) { return profileCategoryLabel(value); }
+        function getCategoryDisplay(value) { return profileCategoryDisplay(value); }
+        function getCategories() {
+            return window.WarehouseProfile && typeof window.WarehouseProfile.getCategories === 'function'
+                ? window.WarehouseProfile.getCategories() : [];
+        }
+        function getSnapshotCategories() {
+            return window.WarehouseProfile && typeof window.WarehouseProfile.getSnapshotCategories === 'function'
+                ? window.WarehouseProfile.getSnapshotCategories() : [];
         }
 
         function profileCategoryLabel(value) {
@@ -2788,8 +2818,32 @@
 
         const inputIds = ['rawDataInput', 'detailedDataInput'];
 
+        function prefGet(key, fallback = null) {
+            try {
+                if (window.UserPrefs && Object.prototype.hasOwnProperty.call(window.UserPrefs, 'get')) {
+                    const value = window.UserPrefs.get(key, null);
+                    if (value !== null && value !== undefined) return value;
+                }
+                const value = localStorage.getItem(key);
+                return value === null ? fallback : value;
+            } catch (e) { return fallback; }
+        }
+        function prefSet(key, value) {
+            try {
+                if (window.UserPrefs) window.UserPrefs.set(key, value);
+                else localStorage.setItem(key, value);
+            } catch (e) {}
+            return value;
+        }
+        function prefRemove(key) {
+            try {
+                if (window.UserPrefs) window.UserPrefs.remove(key);
+                else localStorage.removeItem(key);
+            } catch (e) {}
+        }
+
         function isInputAutoSaveEnabled() {
-            return localStorage.getItem(INPUT_AUTOSAVE_KEY) !== 'false';
+            return prefGet(INPUT_AUTOSAVE_KEY, 'true') !== 'false';
         }
 
         function updateAutoSaveUI() {
@@ -2809,9 +2863,9 @@
             inputIds.forEach(id => {
                 const el = qs(id);
                 if (!el) return;
-                if (enabled && localStorage.getItem(id)) el.value = localStorage.getItem(id);
+                if (enabled && prefGet(id)) el.value = prefGet(id);
                 el.addEventListener('input', (e) => {
-                    if (isInputAutoSaveEnabled()) localStorage.setItem(id, e.target.value);
+                    if (isInputAutoSaveEnabled()) prefSet(id, e.target.value);
                 });
             });
             updateAutoSaveUI();
@@ -2819,14 +2873,14 @@
 
         function handleAutoSaveToggle() {
             const enabled = qs('autoSaveToggle').checked;
-            localStorage.setItem(INPUT_AUTOSAVE_KEY, enabled ? 'true' : 'false');
+            prefSet(INPUT_AUTOSAVE_KEY, enabled ? 'true' : 'false');
             if (!enabled) {
-                inputIds.forEach(id => localStorage.removeItem(id));
+                inputIds.forEach(prefRemove);
                 setStatus('Privacy mode enabled. Saved pasted input data was cleared from this browser.', 'warning');
             } else {
                 inputIds.forEach(id => {
                     const el = qs(id);
-                    if (el) localStorage.setItem(id, el.value);
+                    if (el) prefSet(id, el.value);
                 });
                 setStatus('Auto-save enabled for pasted input data in this browser.', 'success');
             }
@@ -2837,7 +2891,7 @@
 
         function clearMemory() {
             if(confirm("Are you sure you want to clear all pasted input data? Snapshot history will not be deleted.")) {
-                inputIds.forEach(id => { qs(id).value = ''; localStorage.removeItem(id); });
+                inputIds.forEach(id => { qs(id).value = ''; prefRemove(id); });
                 location.reload();
             }
         }
@@ -2848,7 +2902,7 @@
 
         function isSectionVisible(section) {
             const key = getSectionStorageKey(section);
-            return !key || localStorage.getItem(key) !== 'hidden';
+            return !key || prefGet(key) !== 'hidden';
         }
 
         function updateSectionMenuUI() {
@@ -2870,7 +2924,7 @@
         function setSectionVisibility(section, visible, silent = false) {
             const key = getSectionStorageKey(section);
             if (!key) return;
-            localStorage.setItem(key, visible ? 'visible' : 'hidden');
+            prefSet(key, visible ? 'visible' : 'hidden');
 
             if (section === 'filters') {
                 const filterPanel = qs('filterBarContainer');
@@ -2973,6 +3027,9 @@
         }
 
         function isContaminated(row) {
+            if (window.WarehouseProfile && window.WarehouseApp && typeof window.WarehouseApp.getSegregationViolations === 'function') {
+                return window.WarehouseApp.getSegregationViolations(window.WarehouseProfile, row).length > 0;
+            }
             const categoryId = profileCategoryId(row.binCat);
             if (categoryId === 'raw-material') return row.batQty > 0 || row.packQty > 0;
             if (categoryId === 'battery') return row.rmQty > 0 || row.packQty > 0;
@@ -3023,23 +3080,35 @@
             let grHasLCD = false;
             let grItems = [];
             let grItemsByHU = {};
+            const activeProfileConfig = (window.WarehouseProfile && window.WarehouseProfile.profile) || {};
+            const mappingApi = window.WarehouseApp && typeof window.WarehouseApp.mapDetailRow === 'function' ? window.WarehouseApp : null;
+            const detailLines = detailText ? detailText.split(/\r?\n/) : [];
+            const rawLines = rawText ? rawText.split(/\r?\n/) : [];
+            const detailHeaderLine = detailLines.find(line => /\bpn\b/i.test(line) && /description/i.test(line));
+            const masterHeaderLine = rawLines.find(line => /storage\s*bin/i.test(line));
+            const detailHeaders = detailHeaderLine ? detailHeaderLine.split('\t') : [];
+            const masterHeaders = masterHeaderLine ? masterHeaderLine.split('\t') : [];
+            const detailMapping = activeProfileConfig.dataMappings && activeProfileConfig.dataMappings.detail || {};
+            const masterMapping = activeProfileConfig.dataMappings && activeProfileConfig.dataMappings.master || {};
+            const quantityMapping = activeProfileConfig.dataMappings && activeProfileConfig.dataMappings.categoryQuantityColumns || {};
 
             if (detailText) {
-                const detLines = detailText.split('\n');
+                const detLines = detailLines;
                 for (let i = 0; i < detLines.length; i++) {
                     let line = detLines[i].trim();
                     if (!line || line.toLowerCase().includes('storage bin') || line.toLowerCase().includes('pn')) continue;
                     let cols = line.split('\t');
                     if (cols.length < 6) { warnings.skippedDetailRows++; continue; }
 
-                    let pn = cols[0].trim();
-                    let desc = cols[1].trim();
-                    let category = cols[2].trim();
-                    let rawQty = cols[3].trim().replace(/,/g, '');
+                    const mapped = mappingApi ? mappingApi.mapDetailRow(cols, detailHeaders, detailMapping) : null;
+                    let pn = (mapped ? mapped.partNumber : cols[0]).trim();
+                    let desc = (mapped ? mapped.description : cols[1]).trim();
+                    let category = (mapped ? mapped.category : cols[2]).trim();
+                    let rawQty = (mapped ? mapped.quantity : cols[3]).trim().replace(/,/g, '');
                     let qty = parseFloat(rawQty) || 0;
-                    let batch = cols[4].trim();
-                    let bin = cols[5].trim();
-                    let hu = cols.length > 6 ? cols[6].trim() : "";
+                    let batch = (mapped ? mapped.batch : cols[4]).trim();
+                    let bin = (mapped ? mapped.bin : cols[5]).trim();
+                    let hu = (mapped ? mapped.handlingUnit : (cols.length > 6 ? cols[6] : '')).trim();
 
                     const detailItem = { pn, desc, category, qty, batch, bin, hu };
                     parsedDetail.push(detailItem);
@@ -3077,27 +3146,31 @@
             }
 
             if (rawText) {
-                const lines = rawText.split('\n');
+                const lines = rawLines;
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i].trim();
                     if (!line || line.toLowerCase().includes('storage bin')) continue;
                     let cols = line.split('\t');
                     if (cols.length < 1 || !cols[0].trim()) { warnings.skippedMasterRows++; continue; }
                     
-                    let bin = (cols[0] || "Unknown").trim();
+                    const mapped = mappingApi && typeof mappingApi.mapMasterRow === 'function'
+                        ? mappingApi.mapMasterRow(cols, masterHeaders, masterMapping, quantityMapping) : null;
+                    let bin = (mapped ? mapped.bin : (cols[0] || "Unknown")).trim();
                     if (isProfileSpecialLocation(bin)) continue;
 
-                    let palletRaw = cols.length >= 4 ? cols[3].trim() : '';
+                    let palletRaw = (mapped ? mapped.palletCount : (cols.length >= 4 ? cols[3] : '')).trim();
                     let palletCount = cols.length >= 4 ? parseInt(palletRaw) || 0 : 0;
                     if (palletRaw && isNaN(parseInt(palletRaw))) warnings.invalidMasterPalletRows++;
 
-                    let cat = cols.length >= 5 ? cols[4].trim() : "";
-                    let binCat = cols.length >= 6 && cols[5].trim() !== "" ? cols[5].trim().toUpperCase() : "UNASSIGNED";
+                    let cat = (mapped ? mapped.category : (cols.length >= 5 ? cols[4] : '')).trim();
+                    let binCatRaw = (mapped ? mapped.binCategory : (cols.length >= 6 ? cols[5] : '')).trim();
+                    let binCat = binCatRaw !== '' ? profileCategoryLabel(binCatRaw) : "UNASSIGNED";
                     if (binCat === "UNASSIGNED") warnings.unassignedBinCatRows++;
                     
-                    let rmQty = cols.length >= 7 ? parseInt(cols[6]) || 0 : 0;
-                    let batQty = cols.length >= 8 ? parseInt(cols[7]) || 0 : 0;
-                    let packQty = cols.length >= 9 ? parseInt(cols[8]) || 0 : 0;
+                    const mappedQuantities = mapped && mapped.categoryQuantities || {};
+                    let rmQty = mapped ? parseInt(mappedQuantities['raw-material']) || 0 : (cols.length >= 7 ? parseInt(cols[6]) || 0 : 0);
+                    let batQty = mapped ? parseInt(mappedQuantities.battery) || 0 : (cols.length >= 8 ? parseInt(cols[7]) || 0 : 0);
+                    let packQty = mapped ? parseInt(mappedQuantities.packing) || 0 : (cols.length >= 9 ? parseInt(cols[8]) || 0 : 0);
 
                     let binItems = detailByBin[bin] || [];
                     let pcbaQty = 0, phoneQty = 0, lcdQty = 0;
@@ -3107,9 +3180,10 @@
                         if (isLCD(d.pn, d.desc)) lcdQty += d.qty;
                     });
 
-                    let parts = bin.split('-');
-                    let zone = parts[0] || "Unknown";
-                    let aisle = parts.length > 1 ? parts[1] : "Misc";
+                    const detectedZone = window.WarehouseApp && typeof window.WarehouseApp.detectZone === 'function'
+                        ? window.WarehouseApp.detectZone(bin, window.WarehouseProfile) : null;
+                    let zone = detectedZone ? detectedZone.zone : (bin.split('-')[0] || "Unknown");
+                    let aisle = detectedZone ? detectedZone.aisle : ((bin.split('-').length > 1) ? bin.split('-')[1] : "Misc");
 
                     let rowObj = { bin, zone, aisle, palletCount, category: cat, binCat, rmQty, batQty, packQty, pcbaQty, phoneQty, lcdQty };
                     rowObj.searchText = buildRowSearchText(rowObj, binItems);
@@ -3178,7 +3252,7 @@
                 if (currentStats.warnings.unassignedBinCatRows > 0) warnings.push(`${currentStats.warnings.unassignedBinCatRows} bin(s) have no BIN CATEGORY (UNASSIGNED). Demand pressure counts them as RAW MATERIAL.`);
                 setImportWarnings(warnings);
                 const now = new Date();
-                localStorage.setItem(LAST_GENERATED_KEY, now.toISOString());
+                prefSet(LAST_GENERATED_KEY, now.toISOString());
                 updateGeneratedStamp();
                 renderLabView();
                 const nowLabel = now.toLocaleString();
@@ -3200,7 +3274,7 @@
         function getSelectedComparisonSnapshot() {
             if (!trendSnapshots.length) return null;
             const select = qs('comparisonSnapshotSelect');
-            const selectedId = (select && select.value) || localStorage.getItem(COMPARISON_SNAPSHOT_KEY) || '';
+            const selectedId = (select && select.value) || prefGet(COMPARISON_SNAPSHOT_KEY, '') || '';
             return trendSnapshots.find(s => s.id === selectedId) || trendSnapshots[trendSnapshots.length - 1] || null;
         }
 
@@ -3208,11 +3282,11 @@
             const select = qs('comparisonSnapshotSelect');
             if (!select) return;
             sortTrendSnapshots();
-            const previous = select.value || localStorage.getItem(COMPARISON_SNAPSHOT_KEY) || '';
+            const previous = select.value || prefGet(COMPARISON_SNAPSHOT_KEY, '') || '';
             select.innerHTML = '';
             if (!trendSnapshots.length) {
                 const opt = document.createElement('option'); opt.value=''; opt.textContent='No snapshot available'; select.appendChild(opt); select.disabled=true;
-                localStorage.removeItem(COMPARISON_SNAPSHOT_KEY);
+                prefRemove(COMPARISON_SNAPSHOT_KEY);
                 return;
             }
             select.disabled=false;
@@ -3222,12 +3296,12 @@
             });
             const valid = trendSnapshots.some(s => s.id === previous);
             select.value = valid ? previous : trendSnapshots[trendSnapshots.length - 1].id;
-            localStorage.setItem(COMPARISON_SNAPSHOT_KEY, select.value);
+            prefSet(COMPARISON_SNAPSHOT_KEY, select.value);
         }
 
         function handleComparisonSnapshotChange() {
             const select=qs('comparisonSnapshotSelect');
-            if (select && select.value) localStorage.setItem(COMPARISON_SNAPSHOT_KEY, select.value);
+            if (select && select.value) prefSet(COMPARISON_SNAPSHOT_KEY, select.value);
             updateTopMetrics();
             renderOperationalActionCenter();
             renderHeatmap();
@@ -4162,6 +4236,21 @@
         }
 
         function getDefaultPutawaySettings() {
+            const configured = window.WarehouseProfile && window.WarehouseProfile.profile && window.WarehouseProfile.profile.putaway;
+            if (configured && configured.enabled && Array.isArray(configured.rules) && configured.rules.length) {
+                return {
+                    version: 3,
+                    blockMixedNormalHUs: configured.blockMixedHandlingUnits !== false,
+                    rules: configured.rules.map(rule => ({
+                        id: rule.id, enabled: rule.enabled !== false, priority: rule.priority, highValue: Boolean(rule.highValue), name: rule.name,
+                        classifier: rule.when && rule.when.classifier || '',
+                        pnPrefixes: [], descriptionKeywords: [], excludeDescriptionKeywords: [],
+                        categories: rule.when && rule.when.category ? [profileCategoryLabel(rule.when.category)] : [],
+                        targetPatterns: rule.destination && rule.destination.include || [],
+                        excludePatterns: rule.destination && rule.destination.exclude || []
+                    }))
+                };
+            }
             return {
                 version: 2,
                 blockMixedNormalHUs: true,
@@ -4216,6 +4305,7 @@
                 pnPrefixes: normalizeRuleList(rule && rule.pnPrefixes),
                 descriptionKeywords: normalizeRuleList(rule && rule.descriptionKeywords),
                 excludeDescriptionKeywords: normalizeRuleList(rule && rule.excludeDescriptionKeywords),
+                classifier: String(rule && rule.classifier || '').trim(),
                 categories: normalizeRuleList(rule && rule.categories).map(normalizeMaterialCategory).filter(Boolean),
                 targetPatterns: normalizeRuleList(rule && rule.targetPatterns),
                 excludePatterns: normalizeRuleList(rule && rule.excludePatterns)
@@ -4226,7 +4316,7 @@
             const defaults = getDefaultPutawaySettings();
             const rules = Array.isArray(settings && settings.rules) ? settings.rules : defaults.rules;
             return {
-                version: 2,
+                version: Number(settings && settings.version) >= 3 ? 3 : (defaults.version || 2),
                 blockMixedNormalHUs: settings && settings.blockMixedNormalHUs !== undefined
                     ? Boolean(settings.blockMixedNormalHUs)
                     : true,
@@ -4367,13 +4457,15 @@
                     const desc = String(item.desc || '').toUpperCase();
                     return keywords.some(keyword => desc.includes(keyword));
                 });
+                const classifierHit = rule.classifier && eligibleItems.some(item => hasProfileClassifier(item.pn, item.desc, rule.classifier));
                 const mixedBlocked = settings.blockMixedNormalHUs && !rule.highValue && categories.length && categorySet.size > 1;
                 const categoryHit = categories.length && !mixedBlocked && Array.from(categorySet).some(cat => categories.includes(cat));
 
-                if (prefixHit || keywordHit || categoryHit) {
+                if (prefixHit || keywordHit || classifierHit || categoryHit) {
                     const evidence = [];
                     if (prefixHit) evidence.push(`PN prefix ${prefixes.join('/')}`);
                     if (keywordHit) evidence.push(`description ${keywords.join('/')}`);
+                    if (classifierHit) evidence.push(`classifier ${rule.classifier}`);
                     if (categoryHit) evidence.push(`category ${categories.join('/')}`);
                     return { rule, evidence: evidence.join(' + '), categorySet, mixedBlocked: false };
                 }
@@ -4864,7 +4956,7 @@
         const ZONE_ORDER_KEY = 'warehouseZoneOrder_v35';
 
         function getZoneColumns() {
-            try { return localStorage.getItem(ZONE_COLS_KEY) || 'auto'; } catch (e) { return 'auto'; }
+            return prefGet(ZONE_COLS_KEY, 'auto') || 'auto';
         }
 
         function applyZoneColumns() {
@@ -4880,21 +4972,21 @@
         }
 
         function setZoneColumns(mode) {
-            try { localStorage.setItem(ZONE_COLS_KEY, String(mode || 'auto')); } catch (e) {}
+            prefSet(ZONE_COLS_KEY, String(mode || 'auto'));
             applyZoneColumns();
             setStatus(`Zone layout: ${(!mode || mode === 'auto') ? 'Auto fit' : mode + ' column(s)'}.`, 'info');
         }
 
         function getZoneOrder() {
             try {
-                const raw = localStorage.getItem(ZONE_ORDER_KEY);
+                const raw = prefGet(ZONE_ORDER_KEY);
                 const arr = raw ? JSON.parse(raw) : [];
                 return Array.isArray(arr) ? arr.map(String) : [];
             } catch (e) { return []; }
         }
 
         function saveZoneOrder(order) {
-            try { localStorage.setItem(ZONE_ORDER_KEY, JSON.stringify((order || []).map(String))); } catch (e) {}
+            prefSet(ZONE_ORDER_KEY, JSON.stringify((order || []).map(String)));
         }
 
         function sortZonesBySavedOrder(zoneNames) {
@@ -4919,7 +5011,7 @@
         }
 
         function resetZoneOrder() {
-            try { localStorage.removeItem(ZONE_ORDER_KEY); } catch (e) {}
+            prefRemove(ZONE_ORDER_KEY);
             renderHeatmap();
             setStatus('Zone card order reset to A-Z.', 'info');
         }
@@ -4979,7 +5071,7 @@
         const ZONE_VIEW_KEY = 'warehouseZoneView_v35';
 
         function getZoneView() {
-            try { return localStorage.getItem(ZONE_VIEW_KEY) || 'full'; } catch (e) { return 'full'; }
+            return prefGet(ZONE_VIEW_KEY, 'full') || 'full';
         }
 
         function applyZoneView() {
@@ -5000,7 +5092,7 @@
 
         function setZoneView(mode, silent = false) {
             const next = mode === 'heatmap' ? 'heatmap' : 'full';
-            try { localStorage.setItem(ZONE_VIEW_KEY, next); } catch (e) {}
+            prefSet(ZONE_VIEW_KEY, next);
             applyZoneView();
             if (!silent) {
                 setStatus(next === 'heatmap'
@@ -5746,7 +5838,7 @@
         function updateGeneratedStamp() {
             const el = qs('generatedStamp');
             if (!el) return;
-            const raw = localStorage.getItem(LAST_GENERATED_KEY);
+            const raw = prefGet(LAST_GENERATED_KEY);
             if (!raw) { el.textContent = 'Generated — not yet'; return; }
             try {
                 el.textContent = 'Generated ' + new Date(raw).toLocaleString();
@@ -5923,7 +6015,7 @@
 
         function getSectionOrder() {
             try {
-                const raw = JSON.parse(localStorage.getItem(SECTION_ORDER_KEY) || 'null');
+                const raw = JSON.parse(prefGet(SECTION_ORDER_KEY, 'null') || 'null');
                 if (!Array.isArray(raw) || !raw.length) return DEFAULT_SECTION_ORDER.slice();
                 const seen = new Set();
                 const next = [];
@@ -5954,11 +6046,11 @@
             const order = Array.from(stack.querySelectorAll('[data-dash-section]'))
                 .map(el => el.getAttribute('data-dash-section'))
                 .filter(Boolean);
-            if (order.length) localStorage.setItem(SECTION_ORDER_KEY, JSON.stringify(order));
+            if (order.length) prefSet(SECTION_ORDER_KEY, JSON.stringify(order));
         }
 
         function resetSectionOrder() {
-            localStorage.removeItem(SECTION_ORDER_KEY);
+            prefRemove(SECTION_ORDER_KEY);
             applySectionOrder();
             setStatus('Section order reset.', 'info');
         }
@@ -6013,15 +6105,15 @@
         }
 
         function applyTheme() {
-            const theme = localStorage.getItem(THEME_KEY) || 'light';
+            const theme = prefGet(THEME_KEY, 'light') || 'light';
             document.body.classList.toggle('theme-dark', theme === 'dark');
             const btn = qs('btnThemeToggle');
             if (btn) btn.textContent = theme === 'dark' ? 'Light' : 'Dark';
         }
 
         function toggleTheme() {
-            const next = (localStorage.getItem(THEME_KEY) || 'light') === 'dark' ? 'light' : 'dark';
-            localStorage.setItem(THEME_KEY, next);
+            const next = (prefGet(THEME_KEY, 'light') || 'light') === 'dark' ? 'light' : 'dark';
+            prefSet(THEME_KEY, next);
             applyTheme();
             setStatus(next === 'dark' ? 'Dark theme on.' : 'Light theme on.', 'info');
         }
@@ -6077,7 +6169,7 @@
                 alert('No putaway floor rows are available. Generate data with GR-ZONE HUs first.');
                 return;
             }
-            const stamp = localStorage.getItem(LAST_GENERATED_KEY);
+            const stamp = prefGet(LAST_GENERATED_KEY);
             const when = stamp ? new Date(stamp).toLocaleString() : new Date().toLocaleString();
             const body = items.map(item => `<tr><td>${escapeHTML(item.zone)}</td><td>${escapeHTML(item.category)}</td><td>${escapeHTML(item.hu)}</td><td>${escapeHTML(item.bin || '-')}</td><td>${escapeHTML(item.status)}</td><td>${escapeHTML(item.reason)}</td></tr>`).join('');
             const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Putaway Floor List</title>
@@ -6095,7 +6187,7 @@
 
         function getAppView() {
             try {
-                const v = localStorage.getItem(APP_VIEW_KEY);
+                const v = prefGet(APP_VIEW_KEY);
                 if (v === 'data' || v === 'dashboard' || v === 'lab') return v;
             } catch (e) {}
             return 'dashboard';
@@ -6103,7 +6195,7 @@
 
         function setAppView(view, silent) {
             const next = (view === 'data' || view === 'lab') ? view : 'dashboard';
-            try { localStorage.setItem(APP_VIEW_KEY, next); } catch (e) {}
+            prefSet(APP_VIEW_KEY, next);
             applyAppView();
             if (!silent) setStatus(next === 'lab' ? 'Lab: Floor Sheet UI. Same rules as Dashboard.' : (next === 'data' ? 'Data view.' : 'Dashboard.'), 'info');
         }
@@ -6202,7 +6294,7 @@
 
         function renderLabView() {
             const stamp = qs('labGeneratedStamp');
-            const raw = localStorage.getItem(LAST_GENERATED_KEY);
+            const raw = prefGet(LAST_GENERATED_KEY);
             if (stamp) {
                 if (!raw) stamp.textContent = 'Generated — not yet';
                 else {
@@ -6237,12 +6329,41 @@
             const specialLabel = profileApi.specialLocationLabel('gr-zone');
             if (specialLabel) STORAGE_BIN_GR = specialLabel;
             const snapshotLabels = profileApi.snapshotCategoryLabels();
-            if (snapshotLabels.length) SNAPSHOT_CATS = snapshotLabels;
+            if (!snapshotLabels.length) throw new Error('Active warehouse profile must define at least one snapshot category.');
+            SNAPSHOT_CATS = snapshotLabels;
+            if (window.WarehouseApp && typeof window.WarehouseApp.applyModuleVisibility === 'function') {
+                window.WarehouseApp.applyModuleVisibility(profileApi);
+            }
+        }
+
+        function openProfileDiagnostics() {
+            const summary = window.ProfileManager && window.ProfileManager.profileSummary(window.WarehouseProfile);
+            if (!summary) return;
+            const existing = qs('profileDiagnosticsModal');
+            if (existing) { existing.remove(); return; }
+            const modal = document.createElement('div');
+            modal.id = 'profileDiagnosticsModal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:2147482000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px';
+            const panel = document.createElement('div');
+            panel.style.cssText = 'background:#fff;border-radius:16px;padding:20px;width:620px;max-width:96vw;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:Arial,sans-serif';
+            panel.innerHTML = '<h2 style="margin:0 0 8px;font-size:18px;color:#0f172a">Warehouse Profile</h2><p style="margin:0 0 12px;color:#64748b;font-size:12px">Validate or export the active profile. Import validation takes effect after a controlled restart.</p><pre style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;white-space:pre-wrap;font:11px/1.5 monospace;color:#334155"></pre><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button type="button" data-profile-export style="padding:8px 12px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer">Export profile</button><label style="padding:8px 12px;border-radius:8px;background:#e2e8f0;color:#0f172a;font-weight:700;cursor:pointer">Validate JSON<input type="file" accept="application/json,.json" data-profile-import style="display:none"></label><button type="button" data-profile-close style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#334155;font-weight:700;cursor:pointer">Close</button></div><div data-profile-status style="margin-top:10px;min-height:18px;font-size:12px;font-weight:700"></div>';
+            panel.querySelector('pre').textContent = JSON.stringify(summary, null, 2);
+            panel.querySelector('[data-profile-export]').onclick = () => window.ProfileManager.download(window.WarehouseProfile);
+            panel.querySelector('[data-profile-close]').onclick = () => modal.remove();
+            panel.querySelector('[data-profile-import]').onchange = event => {
+                const file = event.target.files && event.target.files[0]; if (!file) return;
+                const status = panel.querySelector('[data-profile-status]'); const reader = new FileReader();
+                reader.onload = () => { try { window.ProfileManager.parseAndValidate(reader.result, window.WarehouseProfile); status.style.color = '#047857'; status.textContent = 'Profile is valid. Restart the app to activate it.'; } catch (error) { status.style.color = '#b91c1c'; status.textContent = error.message; } };
+                reader.readAsText(file);
+            };
+            modal.appendChild(panel); document.body.appendChild(modal);
         }
 
         window.onload = function() {
             const profileReady = window.WarehouseProfileReady || Promise.reject(new Error('Warehouse profile loader is unavailable.'));
             profileReady.then(configureWarehouseProfile).then(function() {
+            return window.UserPrefsReady || (window.UserPrefs && window.UserPrefs.load ? window.UserPrefs.load() : Promise.resolve());
+            }).then(function() {
             applyTheme();
             applyAppView();
             updateGeneratedStamp();
@@ -6283,7 +6404,7 @@
         <span id="zoomIndicatorPct">100%</span>
         <button type="button" onclick="zoomReset()" style="border:none;background:#eff6ff;color:#2563eb;font:700 11px sans-serif;padding:4px 10px;border-radius:8px;cursor:pointer">Reset</button>
     </div>
-    <div id="appCredit" style="position:fixed;left:12px;bottom:12px;z-index:2147481000;font:600 11px sans-serif;color:#94a3b8;background:rgba(255,255,255,.75);padding:4px 10px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.08);pointer-events:none;user-select:none">© Hendy 2026 · v1.0</div>
+    <div id="appCredit" style="position:fixed;left:12px;bottom:12px;z-index:2147481000;font:600 11px sans-serif;color:#94a3b8;background:rgba(255,255,255,.75);padding:4px 10px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.08);pointer-events:none;user-select:none">© Hendy 2026 · v2.0.0</div>
 </body>
 </html>
 
