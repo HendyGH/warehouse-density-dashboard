@@ -9,7 +9,10 @@
   "snapshotCategories": ["general"],
   "classifiers": [],
   "specialLocations": [],
+  "dataMappings": { "master": {}, "detail": {}, "categoryQuantityColumns": {} },
   "segregation": { "enabled": false, "rules": [] },
+  "putaway": { "enabled": false, "blockMixedHandlingUnits": false, "rules": [] },
+  "zoneDetection": { "mode": "delimiter", "delimiter": "-" },
   "modules": { "density": true, "snapshots": true, "segregation": false, "putaway": false, "actionCenter": false, "highValueTracking": false, "npi": false, "floorSheet": false, "lab": false }
 }
 

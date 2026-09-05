@@ -29,6 +29,12 @@
         if (!global.WarehouseOnboarding || typeof global.WarehouseOnboarding.createDraft !== 'function') throw new Error('Profile onboarding is unavailable.');
         return global.WarehouseOnboarding.createDraft(options);
     }
-    global.ProfileManager = { profileSummary, parseAndValidate, exportText, download, createDraft };
+    async function activate(textOrProfile, profileApi) {
+        const validated = typeof textOrProfile === 'string' ? parseAndValidate(textOrProfile, profileApi || global.WarehouseProfile) : (profileApi || global.WarehouseProfile).validate(textOrProfile);
+        if (global.MachineConfig && typeof global.MachineConfig.set === 'function') global.MachineConfig.set('activeProfile', validated);
+        global.WarehouseProfile = await (profileApi || global.WarehouseProfile).load(validated);
+        return global.WarehouseProfile;
+    }
+    global.ProfileManager = { profileSummary, parseAndValidate, exportText, download, createDraft, activate };
 })(window);
 

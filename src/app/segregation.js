@@ -18,7 +18,9 @@
         const observed = [];
         Object.keys(quantityFields).forEach(id => {
             const field = quantityFields[id];
-            if (row && Number(row[field]) > 0) observed.push({ category: id, quantity: Number(row[field]) });
+            const quantity = row && row.categoryQuantities && row.categoryQuantities[id] !== undefined
+                ? Number(row.categoryQuantities[id]) : Number(row && row[field]);
+            if (quantity > 0) observed.push({ category: id, quantity });
         });
         itemRows.forEach(item => {
             const id = categoryId(profile, item && item.category);

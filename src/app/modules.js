@@ -19,6 +19,10 @@
             if (element) element.hidden = !isEnabled(profileApi, moduleId);
         }));
         doc.querySelectorAll('[data-dash-section="action"]').forEach(element => { element.hidden = !isEnabled(profileApi, 'actionCenter'); });
+        doc.querySelectorAll('[data-module]').forEach(element => { element.hidden = !isEnabled(profileApi, element.getAttribute('data-module')); });
+        Object.keys(DEFAULTS).forEach(moduleId => {
+            doc.querySelectorAll(`[data-module-${moduleId}]`).forEach(element => { element.hidden = !isEnabled(profileApi, moduleId); });
+        });
         return profileApi;
     }
     global.WarehouseApp = global.WarehouseApp || {};

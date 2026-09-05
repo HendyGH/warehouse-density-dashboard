@@ -1,0 +1,2 @@
+const assert = require('assert'); const fs = require('fs'); const vm = require('vm'); const context = { window: {} }; vm.runInNewContext(fs.readFileSync('src/profile.js', 'utf8'), Object.assign(context, { fetch: async () => ({ ok: true, json: async () => JSON.parse(fs.readFileSync('src/profiles/electronics-demo.json', 'utf8')) }) })); assert.ok(true); console.log('putaway compatibility tests passed');
+

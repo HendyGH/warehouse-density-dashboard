@@ -3,6 +3,7 @@
   "id": "electronics-demo",
   "name": "Electronics demo",
   "unknownCategoryPolicy": "map-to-default",
+  "defaultCategory": "raw-material",
   "categories": [
     { "id": "raw-material", "label": "RAW MATERIAL", "display": "RAW MAT", "aliases": ["RAW", "RAW MATERIAL", "RAW MAT"], "style": { "tone": "slate", "shortLabel": "RM" } },
     { "id": "battery", "label": "BATTERY", "display": "BATTERY", "aliases": ["BAT", "BATTERY"], "style": { "tone": "orange", "shortLabel": "BT" } },
