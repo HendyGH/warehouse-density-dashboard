@@ -19,7 +19,19 @@
         get(key, fallback = null) { return Object.prototype.hasOwnProperty.call(machineCache, key) ? machineCache[key] : fallback; },
         set(key, value) { machineCache[key] = value; persist(localInvoke, machineFile, machineCache); return value; },
         remove(key) { delete machineCache[key]; persist(localInvoke, machineFile, machineCache); },
-        load() { if (!localInvoke) return Promise.resolve(machineCache); return localInvoke('read_local_file_named', { name: machineFile }).then(raw => { if (!raw) return machineCache; let parsed; try { parsed = JSON.parse(raw); } catch (error) { throw new Error(`Machine configuration file is corrupt: ${error.message}`); } if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw new Error('Machine configuration file has an invalid structure.'); Object.assign(machineCache, parsed); return machineCache; }); }
+        load() {
+            if (!localInvoke) return Promise.resolve(machineCache);
+            return localInvoke('read_local_file_named', { name: machineFile }).then(raw => {
+                if (raw) { let parsed; try { parsed = JSON.parse(raw); } catch (error) { throw new Error(`Machine configuration file is corrupt: ${error.message}`); } if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw new Error('Machine configuration file has an invalid structure.'); Object.assign(machineCache, parsed); }
+                if (!machineCache.activeProfile && !machineCache.activeProfilePath) {
+                    return localInvoke('read_file_named', { name: 'warehouse_state_v35.json' }).then(legacy => {
+                        if (legacy) { machineCache.activeProfilePath = './profiles/electronics-demo.json'; machineCache.migratedFrom = 'v35'; machineCache.migrationVersion = 2; persist(localInvoke, machineFile, machineCache); }
+                        return machineCache;
+                    }).catch(() => machineCache);
+                }
+                return machineCache;
+            });
+        }
     };
     global.SharedStore = SharedStore; global.UserPrefs = UserPrefs; global.MachineConfig = MachineConfig;
     global.UserPrefsReady = UserPrefs.load();
