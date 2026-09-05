@@ -1,16 +1,12 @@
 {
   "schemaVersion": 1,
   "id": "generic",
-  "name": "Generic warehouse",
+  "name": "Generic Warehouse",
   "categories": [
-    { "id": "raw-material", "label": "RAW MATERIAL", "display": "RAW MAT", "aliases": ["RAW", "RAW MATERIAL", "RAW MAT"] },
-    { "id": "battery", "label": "BATTERY", "display": "BATTERY", "aliases": ["BAT", "BATTERY"] },
-    { "id": "packing", "label": "PACKING", "display": "PACKING", "aliases": ["PACK", "PACKING"] }
+    { "id": "general", "label": "GENERAL", "display": "General", "aliases": ["GENERAL"] }
   ],
-  "snapshotCategories": ["packing", "battery", "raw-material"],
+  "snapshotCategories": ["general"],
   "classifiers": [],
-  "specialLocations": [
-    { "id": "gr-zone", "label": "GR-ZONE", "aliases": ["GR", "GR-ZONE"], "tags": ["receiving", "inbound"] }
-  ]
+  "specialLocations": []
 }
 

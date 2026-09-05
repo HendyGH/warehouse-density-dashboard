@@ -1,0 +1,11 @@
+PN	Description	Category	Quantity	Batch	Storage Bin	HU
+100001	Raw fabricated item	RAW MATERIAL	10	BATCH-R1	O1-A01	HU-A01
+200001	Battery fabricated item	BATTERY	8	BATCH-B1	O1-B01	HU-B01
+300001	Packing fabricated item	PACKING	6	BATCH-P1	O1-C01	HU-C01
+521234	PCBA fabricated board	RAW MATERIAL	10	BATCH-G1	GR-ZONE	HU-GR-1
+901234	Phone fabricated module	RAW MATERIAL	5	BATCH-G1	GR-ZONE	HU-GR-1
+571234	Display fabricated panel	RAW MATERIAL	7	BATCH-G2	GR-ZONE	HU-GR-2
+571235	UNDERDISPLAY fabricated fingerprint	RAW MATERIAL	4	BATCH-G2	GR-ZONE	HU-GR-2
+400001	Battery inbound item	BATTERY	3	BATCH-G3	GR-ZONE	HU-GR-3
+500001	Packing inbound item	PACKING	2	BATCH-G4	GR-ZONE	HU-GR-4
+

@@ -40,9 +40,40 @@ vm.runInNewContext(profileSource, context, { filename: 'profile.js' });
   assert.strictEqual(profile.matches({ desc: 'ordinary item' }, {
     exclude: [{ field: 'desc', op: 'contains', value: 'underdisplay' }]
   }), true);
+  assert.doesNotThrow(() => profile.validate(generic));
   context.fetch = async () => ({ ok: true, json: async () => ({ schemaVersion: 1, id: 'invalid', categories: [], classifiers: [], specialLocations: [] }) });
   await assert.rejects(() => profile.load('./profiles/custom-invalid.json'), /validation failed/);
   assert.throws(() => profile.validate({ schemaVersion: 1, id: 'bad', categories: [], classifiers: [], specialLocations: [] }), /validation failed/);
+  assert.throws(() => profile.validate({
+    schemaVersion: 1, id: 'alias-collision',
+    categories: [
+      { id: 'battery', label: 'BATTERY', aliases: ['BAT'] },
+      { id: 'other', label: 'OTHER', aliases: ['bat'] }
+    ], classifiers: [], specialLocations: []
+  }), /category alias collision.*BAT/);
+  assert.throws(() => profile.validate({
+    schemaVersion: 1, id: 'label-alias-collision',
+    categories: [
+      { id: 'battery', label: 'BATTERY', aliases: [] },
+      { id: 'other', label: 'OTHER', aliases: ['battery'] }
+    ], classifiers: [], specialLocations: []
+  }), /category alias collision.*BATTERY/);
+  assert.throws(() => profile.validate({
+    schemaVersion: 1, id: 'location-alias-collision',
+    categories: [{ id: 'general', label: 'GENERAL', aliases: ['GENERAL'] }], classifiers: [],
+    specialLocations: [
+      { id: 'receiving', label: 'RECEIVING', aliases: ['GR'] },
+      { id: 'quarantine', label: 'QUARANTINE', aliases: ['gr'] }
+    ]
+  }), /special location alias collision.*GR/);
+  assert.throws(() => profile.validate({
+    schemaVersion: 1, id: 'bad-snapshot',
+    categories: [{ id: 'general', label: 'GENERAL', aliases: ['GENERAL'] }], snapshotCategories: ['missing'], classifiers: [], specialLocations: []
+  }), /snapshot category is unknown/);
+  assert.throws(() => profile.validate({
+    schemaVersion: 1, id: 'bad-operator',
+    categories: [{ id: 'general', label: 'GENERAL', aliases: ['GENERAL'] }], classifiers: [{ id: 'x', tags: [], match: { any: [{ field: 'pn', op: 'startsWitht', value: '1' }] } }], specialLocations: []
+  }), /match\.any\[0\]\.op is unsupported/);
   assert.throws(() => profile.validate({
     schemaVersion: 1,
     id: 'bad-match',

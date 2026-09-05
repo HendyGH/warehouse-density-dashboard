@@ -43,6 +43,26 @@
         return true;
     }
 
+    function validateUniqueNames(entries, scope, errors) {
+        const names = new Map();
+        (Array.isArray(entries) ? entries : []).forEach((entry, index) => {
+            if (!entry || typeof entry !== 'object') return;
+            const candidates = [{ kind: 'label', value: entry.label }]
+                .concat((Array.isArray(entry.aliases) ? entry.aliases : []).map(value => ({ kind: 'alias', value })));
+            candidates.forEach(candidate => {
+                const token = upper(candidate.value);
+                if (!token) return;
+                const prior = names.get(token);
+                if (prior && prior.id !== entry.id) {
+                    const collisionType = prior.kind === 'alias' || candidate.kind === 'alias' ? 'alias collision' : 'label collision';
+                    errors.push(`${scope} ${collisionType}: "${token}" is used by ${prior.id} and ${entry.id || `${scope}[${index}]`}`);
+                } else if (!prior) {
+                    names.set(token, { id: entry.id || `${scope}[${index}]`, kind: candidate.kind });
+                }
+            });
+        });
+    }
+
     function validate(profile) {
         if (!profile || typeof profile !== 'object') fail('profile must be an object');
         if (profile.schemaVersion !== 1) fail('schemaVersion must be 1');
@@ -57,6 +77,7 @@
             if (!text(category && category.label)) errors.push(`categories[${index}].label is required`);
             if (!Array.isArray(category && category.aliases)) errors.push(`categories[${index}].aliases must be an array`);
         });
+        validateUniqueNames(profile.categories, 'category', errors);
         const classifierIds = new Set();
         if (!Array.isArray(profile.classifiers)) errors.push('classifiers must be an array');
         (profile.classifiers || []).forEach((classifier, index) => {
@@ -89,6 +110,7 @@
             if (!location || !text(location.label)) errors.push(`specialLocations[${index}].label is required`);
             if (location && !Array.isArray(location.aliases)) errors.push(`specialLocations[${index}].aliases must be an array`);
         });
+        validateUniqueNames(profile.specialLocations, 'special location', errors);
         const knownIds = new Set((profile.categories || []).map(category => category && category.id));
         if (profile.snapshotCategories != null) {
             if (!Array.isArray(profile.snapshotCategories)) errors.push('snapshotCategories must be an array');

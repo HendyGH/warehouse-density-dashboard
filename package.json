@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "tauri": "tauri",
-    "test": "node tests/profile.test.js"
+    "test": "node tests/profile.test.js && node tests/dashboard-profile-regression.test.js"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"
