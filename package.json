@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "scripts": {
     "tauri": "tauri",
-    "test": "node tests/profile.test.js && node tests/dashboard-profile-regression.test.js && node tests/segregation.test.js && node tests/mappings.test.js && node tests/zone.test.js && node tests/onboarding.test.js && node tests/category-engine.test.js && node tests/migration.test.js && node tests/storage.test.js && node tests/modules.test.js && node tests/putaway.test.js && node tests/generic-warehouse.test.js"
+    "test": "node tests/profile.test.js && node tests/dashboard-profile-regression.test.js && node tests/segregation.test.js && node tests/mappings.test.js && node tests/zone.test.js && node tests/onboarding.test.js && node tests/category-engine.test.js && node tests/migration.test.js && node tests/storage.test.js && node tests/modules.test.js && node tests/putaway.test.js && node tests/generic-warehouse.test.js && node tests/electronics-compatibility.test.js"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"
