@@ -4251,42 +4251,9 @@
                     }))
                 };
             }
-            return {
-                version: 2,
-                blockMixedNormalHUs: true,
-                rules: [
-                    {
-                        id: 'phone', enabled: true, priority: 10, highValue: true, name: 'Phone',
-                        pnPrefixes: ['90'], descriptionKeywords: ['PHONE'], excludeDescriptionKeywords: [], categories: [],
-                        targetPatterns: ['O5-A*'], excludePatterns: ['O5-A8*']
-                    },
-                    {
-                        id: 'pcba', enabled: true, priority: 20, highValue: true, name: 'PCBA',
-                        pnPrefixes: ['52'], descriptionKeywords: ['PCBA'], excludeDescriptionKeywords: [], categories: [],
-                        targetPatterns: ['O5-A8*'], excludePatterns: []
-                    },
-                    {
-                        id: 'display-lcd', enabled: true, priority: 30, highValue: true, name: 'Display / LCD',
-                        pnPrefixes: ['57'], descriptionKeywords: ['DISPLAY'], excludeDescriptionKeywords: ['UNDERDISPLAY'], categories: [],
-                        targetPatterns: ['O5-A*'], excludePatterns: ['O5-A8*']
-                    },
-                    {
-                        id: 'battery', enabled: true, priority: 40, highValue: false, name: 'Battery',
-                        pnPrefixes: [], descriptionKeywords: [], excludeDescriptionKeywords: [], categories: ['BATTERY'],
-                        targetPatterns: ['O3-B*', 'O3-C*'], excludePatterns: []
-                    },
-                    {
-                        id: 'packing', enabled: true, priority: 50, highValue: false, name: 'Packing',
-                        pnPrefixes: [], descriptionKeywords: [], excludeDescriptionKeywords: [], categories: ['PACKING'],
-                        targetPatterns: ['O1*'], excludePatterns: []
-                    },
-                    {
-                        id: 'raw-material', enabled: true, priority: 60, highValue: false, name: 'Raw Material',
-                        pnPrefixes: [], descriptionKeywords: [], excludeDescriptionKeywords: [], categories: ['RAW MATERIAL'],
-                        targetPatterns: ['O3*'], excludePatterns: []
-                    }
-                ]
-            };
+            // The active WarehouseProfile is the only canonical source for putaway rules.
+            // An empty compatibility fallback keeps the UI safe while a profile is loading.
+            return { version: 3, blockMixedNormalHUs: false, rules: [] };
         }
 
         function normalizeRuleList(value) {
