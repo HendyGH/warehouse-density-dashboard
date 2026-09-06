@@ -27,4 +27,9 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: cargo check --manifest-path src-tauri/Cargo.toml
       - run: npm run tauri -- build
-
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: warehouse-dashboard-v2-windows
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
