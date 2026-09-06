@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "segregation-example",
+  "name": "Segregation Example",
+  "unknownCategoryPolicy": "preserve",
+  "categories": [
+    { "id": "general", "label": "GENERAL", "display": "General", "aliases": ["GENERAL"] },
+    { "id": "frozen", "label": "FROZEN", "display": "Frozen", "aliases": ["FROZEN"] },
+    { "id": "returns", "label": "RETURNS", "display": "Returns", "aliases": ["RETURNS"] }
+  ],
+  "snapshotCategories": ["general", "frozen", "returns"],
+  "classifiers": [],
+  "specialLocations": [
+    { "id": "receiving", "label": "Receiving", "aliases": ["INBOUND"], "type": "receiving", "tags": ["receiving"] },
+    { "id": "quarantine", "label": "Quarantine", "aliases": ["QA-HOLD"], "type": "quarantine", "tags": ["quarantine"] }
+  ],
+  "segregation": { "enabled": true, "rules": [
+    { "id": "frozen-only", "binCategory": "frozen", "allowedItemCategories": ["frozen"], "severity": "error" }
+  ] },
+  "modules": { "density": true, "snapshots": true, "segregation": true, "putaway": false, "actionCenter": true, "highValueTracking": false, "npi": false, "floorSheet": false, "lab": false },
+  "zoneDetection": { "mode": "delimiter", "delimiter": "-" }
+}
+

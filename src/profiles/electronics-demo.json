@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "electronics-demo",
+  "name": "Electronics demo",
+  "unknownCategoryPolicy": "map-to-default",
+  "defaultCategory": "raw-material",
+  "categories": [
+    { "id": "raw-material", "label": "RAW MATERIAL", "display": "RAW MAT", "aliases": ["RAW", "RAW MATERIAL", "RAW MAT"], "style": { "tone": "slate", "shortLabel": "RM" } },
+    { "id": "battery", "label": "BATTERY", "display": "BATTERY", "aliases": ["BAT", "BATTERY"], "style": { "tone": "orange", "shortLabel": "BT" } },
+    { "id": "packing", "label": "PACKING", "display": "PACKING", "aliases": ["PACK", "PACKING"], "style": { "tone": "sky", "shortLabel": "PK" } }
+  ],
+  "snapshotCategories": ["packing", "battery", "raw-material"],
+  "classifiers": [
+    { "id": "pcba", "tags": ["pcba", "high-value"], "match": { "any": [{ "field": "pn", "op": "startsWith", "value": "52" }] } },
+    { "id": "phone", "tags": ["phone", "high-value"], "match": { "any": [{ "field": "pn", "op": "startsWith", "value": "90" }] } },
+    { "id": "lcd", "tags": ["lcd", "display", "high-value"], "match": { "any": [{ "field": "pn", "op": "startsWith", "value": "57" }, { "field": "desc", "op": "contains", "value": "display" }], "exclude": [{ "field": "desc", "op": "contains", "value": "underdisplay" }] } }
+  ],
+  "specialLocations": [
+    { "id": "gr-zone", "label": "GR-ZONE", "aliases": ["GR", "GR-ZONE"], "type": "staging", "tags": ["receiving", "inbound"], "behavior": { "excludeFromStorageCapacity": true, "enablePutawaySuggestions": true } }
+  ],
+  "segregation": {
+    "enabled": true,
+    "quantityFields": { "raw-material": "rmQty", "battery": "batQty", "packing": "packQty" },
+    "rules": [
+      { "id": "raw-material-only", "binCategory": "raw-material", "allowedItemCategories": ["raw-material"], "severity": "error" },
+      { "id": "battery-only", "binCategory": "battery", "allowedItemCategories": ["battery"], "severity": "error" },
+      { "id": "packing-only", "binCategory": "packing", "allowedItemCategories": ["packing"], "severity": "error" }
+    ]
+  },
+  "putaway": {
+    "enabled": true,
+    "blockMixedHandlingUnits": true,
+    "fallbackDestination": { "include": ["O3*"], "exclude": [] },
+    "rules": [
+      { "id": "phone", "priority": 10, "name": "Phone", "highValue": true, "when": { "classifier": "phone" }, "destination": { "include": ["O5-A*"], "exclude": ["O5-A8*"] } },
+      { "id": "pcba", "priority": 20, "name": "PCBA", "highValue": true, "when": { "classifier": "pcba" }, "destination": { "include": ["O5-A8*"], "exclude": [] } },
+      { "id": "display-lcd", "priority": 30, "name": "Display / LCD", "highValue": true, "when": { "classifier": "lcd" }, "destination": { "include": ["O5-A*"], "exclude": ["O5-A8*"] } },
+      { "id": "battery", "priority": 40, "name": "Battery", "highValue": false, "when": { "category": "battery" }, "destination": { "include": ["O3-B*", "O3-C*"], "exclude": [] } },
+      { "id": "packing", "priority": 50, "name": "Packing", "highValue": false, "when": { "category": "packing" }, "destination": { "include": ["O1*"], "exclude": [] } },
+      { "id": "raw-material", "priority": 60, "name": "Raw Material", "highValue": false, "when": { "category": "raw-material" }, "destination": { "include": ["O3*"], "exclude": [] } }
+    ]
+  },
+  "dataMappings": {
+    "master": { "bin": "Storage Bin", "palletCount": "Pallets", "category": "Category", "binCategory": "Bin Category" },
+    "detail": { "partNumber": "PN", "description": "Description", "category": "Category", "quantity": "Quantity", "batch": "Batch", "bin": "Storage Bin", "handlingUnit": "HU" },
+    "categoryQuantityColumns": { "raw-material": "RM Qty", "battery": "Battery Qty", "packing": "Packing Qty" }
+  },
+  "modules": { "density": true, "snapshots": true, "segregation": true, "putaway": true, "actionCenter": true, "highValueTracking": true, "npi": true, "floorSheet": true, "lab": true },
+  "zoneDetection": { "mode": "delimiter", "delimiter": "-" }
+}
+
