@@ -111,7 +111,8 @@
     const reloadConfiguredProfile = () => configuredProfile().then(load).then(profileApi => {
         global.WarehouseProfile = profileApi;
         const config = global.MachineConfig && typeof global.MachineConfig.get === 'function' ? global.MachineConfig : null;
-        const shouldMark = config && (config.get('migratedFrom', null) === 'v35' || config.get('sharedProfileId', null));
+        const sharedProfileId = config && config.get('sharedProfileId', null);
+        const shouldMark = config && (config.get('migratedFrom', null) === 'v35' || (sharedProfileId && profileApi.profile && profileApi.profile.id === sharedProfileId));
         if (shouldMark && global.WarehouseSharedState && typeof global.WarehouseSharedState.markSharedWarehouseV2 === 'function') {
             global.WarehouseSharedState.markSharedWarehouseV2(profileApi);
         }
