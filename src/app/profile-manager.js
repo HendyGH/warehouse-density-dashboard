@@ -35,6 +35,9 @@
             await global.MachineConfig.set('activeProfile', validated);
         }
         global.WarehouseProfile = await (profileApi || global.WarehouseProfile).load(validated);
+        if (global.MachineConfig && typeof global.MachineConfig.remove === 'function') {
+            await global.MachineConfig.remove('profileSelectionRequired');
+        }
         if (global.WarehouseSharedState && typeof global.WarehouseSharedState.markSharedWarehouseV2 === 'function') {
             global.WarehouseSharedState.markSharedWarehouseV2(global.WarehouseProfile);
         }
