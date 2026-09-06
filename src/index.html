@@ -4427,8 +4427,8 @@
                 if (!String(rule.name || '').trim()) errors.push(`Rule ${index + 1}: Rule name is required.`);
                 if (ids.has(rule.id)) errors.push(`${label}: Duplicate internal rule ID.`);
                 ids.add(rule.id);
-                const hasDetector = rule.pnPrefixes.length || rule.descriptionKeywords.length || rule.categories.length;
-                if (!hasDetector) errors.push(`${label}: Add at least one PN prefix, description keyword, or material category.`);
+                const hasDetector = rule.pnPrefixes.length || rule.descriptionKeywords.length || rule.categories.length || Boolean(String(rule.classifier || '').trim());
+                if (!hasDetector) errors.push(`${label}: Add at least one PN prefix, description keyword, material category, or classifier.`);
                 if (!rule.targetPatterns.length) errors.push(`${label}: Add at least one destination bin pattern.`);
                 if (!Number.isFinite(Number(rule.priority))) errors.push(`${label}: Priority must be a number.`);
             });
@@ -4485,77 +4485,16 @@
             return fallback || String(value || '').trim().toLowerCase();
         }
 
-        function wildcardToRegExp(pattern) {
-            const escaped = String(pattern || '').trim()
-                .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-                .replace(/\*/g, '.*')
-                .replace(/\?/g, '.');
-            return new RegExp(`^${escaped}$`, 'i');
-        }
-
-        function matchesAnyPattern(value, patterns) {
-            const input = String(value || '').trim();
-            return normalizeRuleList(patterns).some(pattern => {
-                try { return wildcardToRegExp(pattern).test(input); }
-                catch (error) { return false; }
-            });
-        }
-
-        function getHUCategorySet(items) {
-            return new Set((items || []).map(item => normalizeMaterialCategory(item.category)).filter(Boolean));
-        }
-
         function findMatchingPutawayRule(items, settings) {
-            if (window.WarehouseApp && typeof window.WarehouseApp.findMatchingPutawayRule === 'function') return window.WarehouseApp.findMatchingPutawayRule(items, settings, window.WarehouseProfile);
-            /* legacy fallback kept only for a profile-loading race */
-            const categorySet = getHUCategorySet(items);
-            const sortedRules = (settings.rules || [])
-                .filter(rule => rule.enabled)
-                .slice()
-                .sort((a, b) => Number(a.priority) - Number(b.priority) || String(a.name).localeCompare(String(b.name)));
-
-            for (const rule of sortedRules) {
-                const excludedWords = normalizeRuleList(rule.excludeDescriptionKeywords).map(v => v.toUpperCase());
-                const eligibleItems = (items || []).filter(item => {
-                    const desc = String(item.desc || '').toUpperCase();
-                    return !excludedWords.some(word => word && desc.includes(word));
-                });
-                const prefixes = normalizeRuleList(rule.pnPrefixes).map(v => v.toUpperCase());
-                const keywords = normalizeRuleList(rule.descriptionKeywords).map(v => v.toUpperCase());
-                const categories = normalizeRuleList(rule.categories).map(normalizeMaterialCategory);
-
-                const prefixHit = prefixes.length && eligibleItems.some(item => {
-                    const pn = String(item.pn || '').toUpperCase();
-                    return prefixes.some(prefix => pn.startsWith(prefix));
-                });
-                const keywordHit = keywords.length && eligibleItems.some(item => {
-                    const desc = String(item.desc || '').toUpperCase();
-                    return keywords.some(keyword => desc.includes(keyword));
-                });
-                const classifierHit = rule.classifier && eligibleItems.some(item => hasProfileClassifier(item.pn, item.desc, rule.classifier));
-                const mixedBlocked = settings.blockMixedNormalHUs && !rule.highValue && categories.length && categorySet.size > 1;
-                const categoryHit = categories.length && !mixedBlocked && Array.from(categorySet).some(cat => categories.includes(cat));
-
-                if (prefixHit || keywordHit || classifierHit || categoryHit) {
-                    const evidence = [];
-                    if (prefixHit) evidence.push(`PN prefix ${prefixes.join('/')}`);
-                    if (keywordHit) evidence.push(`description ${keywords.join('/')}`);
-                    if (classifierHit) evidence.push(`classifier ${rule.classifier}`);
-                    if (categoryHit) evidence.push(`category ${categories.join('/')}`);
-                    return { rule, evidence: evidence.join(' + '), categorySet, mixedBlocked: false };
-                }
-            }
-
-            const mixedNormalBlocked = settings.blockMixedNormalHUs && categorySet.size > 1;
-            return { rule: null, evidence: '', categorySet, mixedBlocked: mixedNormalBlocked };
+            const engine = window.WarehouseApp;
+            if (!engine || typeof engine.findMatchingPutawayRule !== 'function') throw new Error('Canonical putaway engine is unavailable.');
+            return engine.findMatchingPutawayRule(items, settings, window.WarehouseProfile);
         }
 
         function binMatchesPutawayRule(binRow, rule) {
-            if (window.WarehouseApp && typeof window.WarehouseApp.binMatchesPutawayRule === 'function') return window.WarehouseApp.binMatchesPutawayRule(binRow, rule);
-            const binName = String(binRow && binRow.bin || '');
-            if (!rule.targetPatterns.length || !matchesAnyPattern(binName, rule.targetPatterns)) return false;
-            if (rule.excludePatterns.length && matchesAnyPattern(binName, rule.excludePatterns)) return false;
-            return true;
+            const engine = window.WarehouseApp;
+            if (!engine || typeof engine.binMatchesPutawayRule !== 'function') throw new Error('Canonical putaway engine is unavailable.');
+            return engine.binMatchesPutawayRule(binRow, rule);
         }
 
         function zoneFromPattern(pattern) {
@@ -4567,31 +4506,15 @@
         }
 
         function getFallbackPutawayRule() {
-            const configured = window.WarehouseProfile && window.WarehouseProfile.profile && window.WarehouseProfile.profile.putaway && window.WarehouseProfile.profile.putaway.fallbackDestination;
-            if (!configured || !Array.isArray(configured.include) || !configured.include.length) return null;
-            return { id: 'fallback-profile', enabled: true, priority: Number.MAX_SAFE_INTEGER, highValue: false, name: 'Fallback', pnPrefixes: [], descriptionKeywords: [], excludeDescriptionKeywords: [], categories: [], targetPatterns: configured.include.slice(), excludePatterns: Array.isArray(configured.exclude) ? configured.exclude.slice() : [], isFallback: true };
+            const engine = window.WarehouseApp;
+            if (!engine || typeof engine.fallbackPutawayRule !== 'function') throw new Error('Canonical putaway engine is unavailable.');
+            return engine.fallbackPutawayRule(window.WarehouseProfile);
         }
 
         function buildZonePutawayPlan() {
             const settings = getPutawaySettings();
             const zones = {};
             const newZoneEntry = () => ({ masterBins: 0, pallets: 0, totalAssigned: 0, demand: 0, assignedByRule: {}, byCategory: {} });
-            (currentStats.data || []).forEach(row => {
-                const zone = String(row.zone || 'Unknown');
-                if (!zones[zone]) zones[zone] = newZoneEntry();
-                zones[zone].masterBins += 1;
-                zones[zone].pallets += Number(row.palletCount) || 0;
-            });
-
-            // --- Per bin-category (per putaway rule) capacity + demand, so one zone can show
-            //     a separate demand pressure per category (e.g. Battery vs Raw Material). ---
-            const configuredFallback = getFallbackPutawayRule();
-            const rulesByPriority = (settings.rules || [])
-                .filter(rule => rule.enabled)
-                .slice()
-                .sort((a, b) => Number(a.priority) - Number(b.priority) || String(a.name).localeCompare(String(b.name)))
-                .concat(configuredFallback ? [configuredFallback] : []);
-
             const ensureZoneCategory = (zoneName, label) => {
                 const key = mainMaterialCategory(label);
                 if (!zones[zoneName]) zones[zoneName] = newZoneEntry();
@@ -4606,10 +4529,12 @@
                 return zones[zoneName].byCategory[key];
             };
 
-            // Capacity comes from the REAL bin category in the uploaded data (row.binCat),
-            // exactly like the heatmap blocks below the card, NOT from the putaway rules.
-            // This guarantees every bin of the zone is counted once and that the category
-            // totals always reconcile with the zone header (bins / pallets / empty).
+            (currentStats.data || []).forEach(row => {
+                const zone = String(row.zone || 'Unknown');
+                if (!zones[zone]) zones[zone] = newZoneEntry();
+                zones[zone].masterBins += 1;
+                zones[zone].pallets += Number(row.palletCount) || 0;
+            });
             (currentStats.data || []).forEach(row => {
                 const entry = ensureZoneCategory(String(row.zone || 'Unknown'), row.binCat);
                 const pallets = Number(row.palletCount) || 0;
@@ -4618,122 +4543,54 @@
                 if (pallets === 0) entry.empty += 1;
             });
 
-            // Main category of an incoming GR HU (PHONE / LCD / PCBA roll up into RAW MATERIAL).
-            const huMainCategory = (huEntry) => {
-                const unique = Array.from(new Set(
-                    Array.from((huEntry && huEntry.categorySet) || []).map(mainMaterialCategory).filter(Boolean)
-                ));
-                return unique.length ? unique[0] : mainMaterialCategory('');
-            };
+            const engine = window.WarehouseApp;
+            if (!engine || typeof engine.planPutaway !== 'function') throw new Error('Canonical putaway engine is unavailable.');
+            const result = engine.planPutaway({
+                profile: window.WarehouseProfile,
+                settings,
+                bins: (currentStats.data || []).slice().sort((a, b) => String(a.bin).localeCompare(String(b.bin), undefined, { numeric: true, sensitivity: 'base' })),
+                itemsByHU: (currentStats.grStats && currentStats.grStats.itemsByHU) || {}
+            });
+            const suggestions = result.suggestions || [];
+            const rowsByBin = new Map((currentStats.data || []).map(row => [String(row.bin || ''), row]));
 
-            const emptyBins = (currentStats.data || [])
-                .filter(row => (Number(row.palletCount) || 0) === 0)
-                .slice()
-                .sort((a, b) => String(a.bin).localeCompare(String(b.bin), undefined, { numeric: true, sensitivity: 'base' }));
-            const usedBins = new Set();
-            const entries = Object.entries((currentStats.grStats && currentStats.grStats.itemsByHU) || {})
-                .map(([hu, items]) => {
-                    const match = findMatchingPutawayRule(items, settings);
-                    return {
-                        hu,
-                        items: items || [],
-                        categorySet: match.categorySet,
-                        rule: match.rule,
-                        evidence: match.evidence,
-                        mixedBlocked: match.mixedBlocked
-                    };
-                })
-                .sort((a, b) => {
-                    const pa = a.rule ? Number(a.rule.priority) : Number.MAX_SAFE_INTEGER;
-                    const pb = b.rule ? Number(b.rule.priority) : Number.MAX_SAFE_INTEGER;
-                    if (pa !== pb) return pa - pb;
-                    return String(a.hu).localeCompare(String(b.hu), undefined, { numeric: true, sensitivity: 'base' });
-                });
-
-            const suggestions = [];
-            let assignedCount = 0;
-            let noSlotCount = 0;
-            let noRuleCount = 0;
-            let mixedBlockedCount = 0;
-            let fallbackCount = 0;
-            let fallbackAssignedCount = 0;
-
-            entries.forEach(entry => {
-                const partNumbers = Array.from(new Set(entry.items.map(item => String(item.pn || '')).filter(Boolean)));
-                const categories = Array.from(entry.categorySet).sort();
-
-                // Mixed-category HUs remain a manual review item when the safety toggle blocks them.
-                if (!entry.rule && entry.mixedBlocked) {
-                    mixedBlockedCount += 1;
-                    suggestions.push({
-                        hu: entry.hu, items: entry.items, partNumbers, categories,
-                        ruleId: '', ruleName: '', highValue: false, suggestedBin: '', zone: '',
-                        status: 'mixed', statusLabel: 'Mixed blocked', isFallback: false,
-                        reason: 'Mixed-category HU is blocked from normal category rules. Add a high-value/specific rule or disable the mixed block.'
-                    });
-                    return;
-                }
-
-                // No specific rule matched -> use the profile fallback, or keep for manual review.
-                const usedFallback = !entry.rule;
-                const rule = entry.rule || getFallbackPutawayRule();
-                if (usedFallback && rule) fallbackCount += 1;
-
-                if (!rule) {
-                    noRuleCount += 1;
-                    suggestions.push({ hu: entry.hu, items: entry.items, partNumbers, categories, ruleId: '', ruleName: '', highValue: false, suggestedBin: '', zone: '', status: 'no-rule', statusLabel: 'Manual review', isFallback: false, reason: 'No enabled putaway rule or profile fallback matched this handling unit.' });
-                    return;
-                }
-
-                const targetZone = zoneFromPattern(rule.targetPatterns[0]);
+            suggestions.forEach(item => {
+                const rule = item.rule;
+                if (!rule || item.status === 'mixed' || item.status === 'no-rule') return;
+                const targetZone = zoneFromPattern(rule.targetPatterns && rule.targetPatterns[0]);
                 if (!zones[targetZone]) zones[targetZone] = newZoneEntry();
                 zones[targetZone].demand += 1;
-
-                const candidate = emptyBins.find(row => !usedBins.has(row.bin) && binMatchesPutawayRule(row, rule));
-
-                // Demand is charged to the bin category that will actually receive the pallet.
-                // If no slot is free we fall back to the HU own main material category.
+                const candidate = rowsByBin.get(String(item.suggestedBin || ''));
                 const demandZone = candidate ? String(candidate.zone || targetZone || 'Unknown') : targetZone;
-                const demandCategoryKey = candidate ? candidate.binCat : huMainCategory(entry);
-                const targetCategory = ensureZoneCategory(demandZone, demandCategoryKey);
+                const categoryKey = candidate ? candidate.binCat : ((item.categories || [])[0] || '');
+                const targetCategory = ensureZoneCategory(demandZone, categoryKey);
                 targetCategory.demand += 1;
-                if (!candidate) {
-                    noSlotCount += 1;
-                    suggestions.push({
-                        hu: entry.hu, items: entry.items, partNumbers, categories,
-                        ruleId: rule.id, ruleName: rule.name, highValue: rule.highValue,
-                        suggestedBin: '', zone: targetZone, status: 'noslot', statusLabel: 'No empty bin', isFallback: usedFallback,
-                        reason: usedFallback
-                            ? `No specific rule matched; routed to the profile fallback, but no empty bin matched ${rule.targetPatterns.join(', ')}.`
-                            : `Matched ${rule.name} (${entry.evidence}), but no empty bin matched ${rule.targetPatterns.join(', ')}${rule.excludePatterns.length ? ` excluding ${rule.excludePatterns.join(', ')}` : ''}.`
-                    });
-                    return;
+                if (item.status === 'assigned') {
+                    zones[targetZone].totalAssigned += 1;
+                    targetCategory.assigned += 1;
+                    zones[targetZone].assignedByRule[rule.name] = (zones[targetZone].assignedByRule[rule.name] || 0) + 1;
                 }
-
-                usedBins.add(candidate.bin);
-                assignedCount += 1;
-                if (usedFallback) fallbackAssignedCount += 1;
-                const zone = String(candidate.zone || targetZone || 'Unknown');
-                zones[targetZone].totalAssigned += 1;
-                targetCategory.assigned += 1;
-                zones[targetZone].assignedByRule[rule.name] = (zones[targetZone].assignedByRule[rule.name] || 0) + 1;
-                suggestions.push({
-                    hu: entry.hu, items: entry.items, partNumbers, categories,
-                    ruleId: rule.id, ruleName: rule.name, highValue: rule.highValue,
-                    suggestedBin: candidate.bin, zone, status: 'assigned', statusLabel: usedFallback ? 'Assigned (fallback)' : 'Assigned', isFallback: usedFallback,
-                    reason: usedFallback
-                        ? `No specific rule matched; routed to the profile fallback (bin ${candidate.bin}).`
-                        : `Matched ${rule.name} by ${entry.evidence}.`
-                });
             });
 
-            const total = entries.length;
-            const noMatchingSlot = noSlotCount;
-            const mixedCategory = mixedBlockedCount;
+            const total = suggestions.length;
+            const assignedCount = Number(result.assigned) || 0;
+            const noSlotCount = Number(result.noSlot) || 0;
+            const noRuleCount = Number(result.noRule) || 0;
+            const mixedBlockedCount = Number(result.mixedBlocked) || 0;
+            const fallbackCount = Number(result.fallbackCount) || 0;
+            const fallbackAssignedCount = Number(result.fallbackAssignedCount) || 0;
             const plan = {
-                zones, suggestions, total, assignedCount, noSlotCount, noRuleCount, mixedBlockedCount,
-                fallbackCount, fallbackAssignedCount,
-                noMatchingSlot, mixedCategory,
+                zones,
+                suggestions,
+                total,
+                assignedCount,
+                noSlotCount,
+                noRuleCount,
+                mixedBlockedCount,
+                fallbackCount,
+                fallbackAssignedCount,
+                noMatchingSlot: noSlotCount,
+                mixedCategory: mixedBlockedCount,
                 unassignedCount: Math.max(0, total - assignedCount),
                 settings: deepClone(settings)
             };
@@ -4756,6 +4613,7 @@
                 pnPrefixes: row.querySelector('[data-field="pnPrefixes"]').value,
                 descriptionKeywords: row.querySelector('[data-field="descriptionKeywords"]').value,
                 excludeDescriptionKeywords: row.querySelector('[data-field="excludeDescriptionKeywords"]').value,
+                classifier: row.dataset.classifier || '',
                 categories: row.querySelector('[data-field="categories"]').value,
                 targetPatterns: row.querySelector('[data-field="targetPatterns"]').value,
                 excludePatterns: row.querySelector('[data-field="excludePatterns"]').value
@@ -4768,11 +4626,11 @@
             if (!body) return;
             const sorted = putawayRuleDraft.slice().sort((a, b) => Number(a.priority) - Number(b.priority));
             body.innerHTML = sorted.map(rule => `
-                <tr data-rule-id="${escapeHTML(rule.id)}">
+                <tr data-rule-id="${escapeHTML(rule.id)}" data-classifier="${escapeHTML(rule.classifier || '')}">
                     <td class="text-center"><input type="checkbox" data-field="enabled" ${rule.enabled ? 'checked' : ''}></td>
                     <td><input type="number" min="0" step="1" autocomplete="off" data-field="priority" value="${escapeHTML(rule.priority)}"><span class="putaway-field-note">Lower runs first</span></td>
                     <td><select data-field="highValue"><option value="high" ${rule.highValue ? 'selected' : ''}>High value</option><option value="normal" ${!rule.highValue ? 'selected' : ''}>Normal</option></select><span class="putaway-field-note">High value can override mixed block</span></td>
-                    <td><input type="text" autocomplete="off" spellcheck="false" data-field="name" value="${escapeHTML(rule.name)}"></td>
+                    <td><input type="text" autocomplete="off" spellcheck="false" data-field="name" value="${escapeHTML(rule.name)}">${rule.classifier ? `<span class="putaway-field-note">Classifier: ${escapeHTML(rule.classifier)}</span>` : ''}</td>
                     <td><input type="text" autocomplete="off" spellcheck="false" data-field="pnPrefixes" value="${escapeHTML(listToInput(rule.pnPrefixes))}" placeholder="57, 90"></td>
                     <td><input type="text" autocomplete="off" spellcheck="false" data-field="descriptionKeywords" value="${escapeHTML(listToInput(rule.descriptionKeywords))}" placeholder="DISPLAY, PHONE"></td>
                     <td><input type="text" autocomplete="off" spellcheck="false" data-field="excludeDescriptionKeywords" value="${escapeHTML(listToInput(rule.excludeDescriptionKeywords))}" placeholder="UNDERDISPLAY"></td>
@@ -6199,7 +6057,7 @@
         function getPutawayFloorRows() {
             const plan = buildZonePutawayPlan();
             const rows = (plan.suggestions || []).map(item => {
-                const cat = (item.categories && item.categories[0]) ? mainMaterialCategory(item.categories[0]) : 'RAW MATERIAL';
+                const cat = (item.categories && item.categories[0]) ? mainMaterialCategory(item.categories[0]) : '';
                 return {
                     zone: item.zone || '',
                     category: cat,
@@ -6462,7 +6320,7 @@
                 return window.WarehouseProfileReload ? window.WarehouseProfileReload() : (window.WarehouseProfileReady || Promise.reject(new Error('Warehouse profile loader is unavailable.')));
             });
             profileReady.then(configureWarehouseProfile).then(function() {
-            if (window.WarehouseOnboarding && window.MachineConfig && !window.MachineConfig.get('onboardingCompleted', false) && window.WarehouseProfile && window.WarehouseProfile.profile && window.WarehouseProfile.profile.id === 'generic') {
+            if (window.WarehouseOnboarding && window.MachineConfig && (window.MachineConfig.get('profileSelectionRequired', false) || !window.MachineConfig.get('onboardingCompleted', false)) && window.WarehouseProfile && window.WarehouseProfile.profile && window.WarehouseProfile.profile.id === 'generic') {
                 window.WarehouseOnboarding.startWizard();
             }
             return window.UserPrefsReady || (window.UserPrefs && window.UserPrefs.load ? window.UserPrefs.load() : Promise.resolve());
