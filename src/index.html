@@ -1786,7 +1786,7 @@
                     <div class="absolute top-0 right-0 w-2 h-full bg-slate-400"></div>
                     <div class="min-h-[32px]">
                         <div class="text-xs font-black text-slate-500 uppercase tracking-widest">Storage Used</div>
-                        <div class="text-[9px] font-bold text-slate-300 uppercase tracking-wider">(Without GR-ZONE)</div>
+                        <div id="storageScopeLabel" class="text-[9px] font-bold text-slate-300 uppercase tracking-wider">(Without GR-ZONE)</div>
                     </div>
                     <div class="flex items-end justify-between mt-3 mb-3 flex-1">
                         <div class="flex items-baseline gap-2">
@@ -1801,11 +1801,11 @@
                     </div>
                 </div>
 
-                <div role="button" tabindex="0" onclick="applyKpiFilter('projected')" onkeydown="handleKpiKey(event,'projected')" class="kpi-card bg-white p-5 rounded-xl border border-blue-200 shadow-sm flex flex-col relative overflow-hidden h-full cursor-pointer hover:shadow-md hover:border-blue-500 transition-all" title="Open GR-ZONE items included in projected load">
+                <div id="projectedLoadKpi" data-special-location-dependent role="button" tabindex="0" onclick="applyKpiFilter('projected')" onkeydown="handleKpiKey(event,'projected')" class="kpi-card bg-white p-5 rounded-xl border border-blue-200 shadow-sm flex flex-col relative overflow-hidden h-full cursor-pointer hover:shadow-md hover:border-blue-500 transition-all" title="Open GR-ZONE items included in projected load">
                     <div class="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
                     <div class="min-h-[32px]">
                         <div class="text-xs font-black text-blue-600 uppercase tracking-widest">Projected Load</div>
-                        <div class="text-[9px] font-bold text-blue-300 uppercase tracking-wider">(With GR-ZONE)</div>
+                        <div id="projectedScopeLabel" class="text-[9px] font-bold text-blue-300 uppercase tracking-wider">(With GR-ZONE)</div>
                     </div>
                     <div class="flex items-end justify-between mt-3 mb-3 flex-1">
                         <div class="flex items-baseline gap-2">
@@ -1900,7 +1900,7 @@
                                 Contaminated Only
                             </span>
                         </label>
-                        <label class="inline-flex items-center cursor-pointer select-none group">
+                        <label data-module-highValueTracking class="inline-flex items-center cursor-pointer select-none group">
                             <input type="checkbox" id="chkHighValue" onchange="applyFilters(event)" class="sr-only peer">
                             <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all duration-150
                                 bg-white text-slate-500 border-slate-200
@@ -1947,9 +1947,7 @@
 
                 <div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-wrap">
                     <span class="text-xs font-black text-slate-700 uppercase tracking-wider border-r pr-4">Material Keys</span>
-                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-600"><div class="w-4 h-4 rounded border-2 border-slate-800 bg-slate-400 text-center leading-none text-[8px] font-black pt-[1px] text-slate-900">RM</div> Raw Mat</div>
-                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-600"><div class="w-4 h-4 rounded border-2 border-slate-800 bg-orange-500 text-center leading-none text-[8px] font-black pt-[1px] text-slate-900">BT</div> Battery</div>
-                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-600"><div class="w-4 h-4 rounded border-2 border-slate-800 bg-sky-500 text-center leading-none text-[8px] font-black pt-[1px] text-slate-900">PK</div> Packing</div>
+                    <div id="materialCategoryLegend" class="flex items-center gap-4 flex-wrap"></div>
                     <div data-profile-classifier="pcba" class="flex items-center gap-1.5 text-xs font-bold text-slate-600 ml-2">
                         <div class="w-4 h-4 rounded bg-slate-200 border border-slate-300 flex items-center justify-center">
                             <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
@@ -2050,7 +2048,7 @@
                                     <option value="projectedLoad">Projected Load</option>
                                     <option value="emptyNormal">Empty Capacity</option>
                                     <option value="contaminatedBins">Contaminated Bins</option>
-                                    <option value="grTotal">GR-ZONE Pallets</option>
+                                    <option id="trendMetricSpecialOption" value="grTotal">GR-ZONE Pallets</option>
                                 </select>
                             </div>
                             <div class="p-3"><div class="relative" style="height:18rem; min-width:0; overflow:hidden;"><canvas id="trendKpiCanvas" style="display:block; width:100%; height:100%;"></canvas></div></div>
@@ -2515,6 +2513,15 @@
             return out;
         }
 
+        function modalCategoryIds() {
+            const ids = profileCategoryIds();
+            return ids.length ? ids : ['raw-material', 'battery', 'packing'];
+        }
+
+        function modalCategoryValue(row, id) {
+            return categoryQuantity(row, id);
+        }
+
         function profileCategoryLabel(value) {
             return window.WarehouseProfile && typeof window.WarehouseProfile.categoryLabel === 'function'
                 ? window.WarehouseProfile.categoryLabel(value)
@@ -2530,6 +2537,29 @@
         function isProfileSpecialLocation(value, id = 'gr-zone') {
             return Boolean(window.WarehouseProfile && typeof window.WarehouseProfile.isSpecialLocation === 'function'
                 && window.WarehouseProfile.isSpecialLocation(value, id));
+        }
+
+        function getPrimarySpecialLocation() {
+            return window.WarehouseProfile && typeof window.WarehouseProfile.getPrimarySpecialLocation === 'function'
+                ? window.WarehouseProfile.getPrimarySpecialLocation() : null;
+        }
+
+        function getSpecialLocationLabel() {
+            const location = getPrimarySpecialLocation();
+            return location && location.label ? location.label : 'Special location';
+        }
+
+        function renderMaterialCategoryLegend(profileApi) {
+            const legend = qs('materialCategoryLegend');
+            if (!legend) return;
+            const categories = profileApi && typeof profileApi.getCategories === 'function' ? profileApi.getCategories() : [];
+            legend.innerHTML = categories.map(category => {
+                const style = getCatStyle(category.id);
+                const shortLabel = category.style && category.style.shortLabel
+                    ? category.style.shortLabel : String(category.display || category.label || category.id).slice(0, 3).toUpperCase();
+                const label = category.display || category.label || category.id;
+                return `<div class="flex items-center gap-1.5 text-xs font-bold text-slate-600"><div class="w-4 h-4 rounded border-2 border-slate-800 text-center leading-none text-[8px] font-black pt-[1px] ${style.bg} ${style.border}">${escapeHTML(shortLabel)}</div>${escapeHTML(label)}</div>`;
+            }).join('');
         }
 
         function hasProfileClassifier(pn, desc, id) {
@@ -2730,16 +2760,22 @@
             const lead = `<span class="text-[11px] font-black text-slate-400 uppercase tracking-wider mr-1">Sum</span>`;
             if (modalState.type === 'aisle') {
                 const rows = getVisibleModalRows();
-                let p=0,rm=0,bat=0,pack=0,pcba=0,phone=0,lcd=0;
-                rows.forEach(r => { p+=Number(r.palletCount)||0; rm+=Number(r.rmQty)||0; bat+=Number(r.batQty)||0; pack+=Number(r.packQty)||0; pcba+=Number(r.pcbaQty)||0; phone+=Number(r.phoneQty)||0; lcd+=Number(r.lcdQty)||0; });
+                let p=0;
+                const categoryTotals = Object.fromEntries(modalCategoryIds().map(id => [id, 0]));
+                rows.forEach(r => { p+=Number(r.palletCount)||0; modalCategoryIds().forEach(id => { categoryTotals[id] += modalCategoryValue(r, id); }); });
                 let html = lead;
                 html += modalTotalChip('Pallets', p, 'bg-blue-100 text-blue-800');
-                html += modalTotalChip('RAW MAT', rm);
-                html += modalTotalChip('BATTERY', bat, 'bg-orange-100 text-orange-800');
-                html += modalTotalChip('PACKING', pack, 'bg-sky-100 text-sky-800');
-                if (pcba) html += modalTotalChip('PCBA', pcba, 'bg-purple-100 text-purple-800');
-                if (phone) html += modalTotalChip('Phone', phone, 'bg-blue-100 text-blue-800');
-                if (lcd) html += modalTotalChip('LCD', lcd, 'bg-cyan-100 text-cyan-800');
+                modalCategoryIds().forEach(id => {
+                    const resolved = resolveCategory(id);
+                    const tone = resolved && resolved.style && resolved.style.tone;
+                    const chipClass = tone === 'orange' ? 'bg-orange-100 text-orange-800' : (tone === 'sky' ? 'bg-sky-100 text-sky-800' : 'bg-slate-100 text-slate-700');
+                    html += modalTotalChip(profileCategoryLabel(id), categoryTotals[id], chipClass);
+                });
+                const highValueClassifiers = (window.WarehouseProfile && window.WarehouseProfile.profile && window.WarehouseProfile.profile.classifiers || []).filter(item => (item.tags || []).includes('high-value'));
+                highValueClassifiers.forEach(classifier => {
+                    const total = rows.reduce((sum, row) => sum + (classifier.id === 'pcba' ? Number(row.pcbaQty) || 0 : classifier.id === 'phone' ? Number(row.phoneQty) || 0 : classifier.id === 'lcd' ? Number(row.lcdQty) || 0 : 0), 0);
+                    if (total) html += modalTotalChip(classifier.id, total, 'bg-purple-100 text-purple-800');
+                });
                 el.innerHTML = html;
             } else if (modalState.type === 'gr') {
                 const groups = getVisibleModalGroups();
@@ -2805,14 +2841,16 @@
 
         function exportCurrentDrilldownCSV() {
             if (modalState.type === 'aisle') {
-                const rows = [["Storage Bin", "Designated Cat", "Pallets", "RAW MAT", "BATTERY", "PACKING", "Status", "Part Number", "Description", "Item Category", "Quantity", "Batch", "HU"]];
+                const categoryIds = modalCategoryIds();
+                const rows = [["Storage Bin", "Designated Cat", "Pallets", ...categoryIds.map(id => profileCategoryLabel(id)), "Status", "Part Number", "Description", "Item Category", "Quantity", "Batch", "HU"]];
                 getVisibleModalRows().forEach(row => {
                     const status = isContaminated(row) ? 'CONTAMINATED' : 'OK';
                     const binItems = currentStats.detailByBin[row.bin] || [];
+                    const categoryValues = categoryIds.map(id => modalCategoryValue(row, id));
                     if (binItems.length === 0) {
-                        rows.push([row.bin, row.binCat, row.palletCount, row.rmQty, row.batQty, row.packQty, status, '', '', '', '', '', '']);
+                        rows.push([row.bin, row.binCat, row.palletCount, ...categoryValues, status, '', '', '', '', '', '']);
                     } else {
-                        binItems.forEach(item => rows.push([row.bin, row.binCat, row.palletCount, row.rmQty, row.batQty, row.packQty, status, item.pn, item.desc, item.category, item.qty, item.batch, item.hu]));
+                        binItems.forEach(item => rows.push([row.bin, row.binCat, row.palletCount, ...categoryValues, status, item.pn, item.desc, item.category, item.qty, item.batch, item.hu]));
                     }
                 });
                 if (rows.length === 1) { alert('No visible drilldown rows to export.'); return; }
@@ -2827,9 +2865,9 @@
                     const cats = Array.from(group.categories || []).sort().join(' + ');
                     group.items.forEach(item => rows.push([group.hu, cats, group.items.length, group.totalQty, item.pn, item.desc, item.category, item.qty, item.batch]));
                 });
-                if (rows.length === 1) { alert('No visible GR-ZONE rows to export.'); return; }
+                if (rows.length === 1) { alert(`No visible ${getSpecialLocationLabel()} rows to export.`); return; }
                 downloadCSV(rows, `GR_ZONE_Drilldown_${APP_VERSION}_${new Date().toISOString().slice(0,10)}.csv`);
-                setStatus('Current GR-ZONE view exported successfully.', 'success');
+                setStatus(`Current ${getSpecialLocationLabel()} view exported successfully.`, 'success');
                 return;
             }
 
@@ -3694,7 +3732,8 @@
             if (!trendSnapshots.length) { alert('No snapshot history to export.'); return; }
             sortTrendSnapshots();
             const categoryHeaders = SNAPSHOT_CATS.map(id => `Zone ${profileCategoryLabel(id)}`);
-            const rows = [["Snapshot ID", "Snapshot Date", "Label", "Saved At", "Total Capacity", "Storage Used", "Utilization %", "Projected Load", "Projected %", "Empty Capacity", "Projected Empty", "Contaminated Bins", "Contamination %", "GR-ZONE Pallets", "Zone", "Zone Pallets", "Zone Contamination", "Zone Utilization %"].concat(categoryHeaders)];
+            const specialColumnLabel = `${getSpecialLocationLabel()} Pallets`;
+            const rows = [["Snapshot ID", "Snapshot Date", "Label", "Saved At", "Total Capacity", "Storage Used", "Utilization %", "Projected Load", "Projected %", "Empty Capacity", "Projected Empty", "Contaminated Bins", "Contamination %", specialColumnLabel, "Zone", "Zone Pallets", "Zone Contamination", "Zone Utilization %"].concat(categoryHeaders)];
             trendSnapshots.forEach((snap, idx) => {
                 const zones = Object.keys(snap.zones || {}).sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
                 const savedAt = snap.savedAt || snap.generatedAt || '';
@@ -3784,7 +3823,7 @@
                         emptyProjected: toNumber(row[idx('Projected Empty')]),
                         contaminatedBins: toNumber(row[idx('Contaminated Bins')]),
                         contaminatedPct: toNumber(row[idx('Contamination %')]),
-                        grTotal: toNumber(row[idx('GR-ZONE Pallets')]),
+                        grTotal: toNumber(row[idx(`${getSpecialLocationLabel()} Pallets`) >= 0 ? `${getSpecialLocationLabel()} Pallets` : 'GR-ZONE Pallets']),
                         zones: {}
                     });
                 }
@@ -3916,12 +3955,14 @@
                 }
                 return `<div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm"><div class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">${label}</div><div class="flex items-end justify-between gap-3"><span class="text-2xl font-black text-slate-800">${value}${suffix}</span>${deltaHtml}</div></div>`;
             };
-            el.innerHTML = [
+            const cards = [
                 card('Storage Used', latest.totalPallets, '', prev ? latest.totalPallets - prev.totalPallets : null),
                 card('Utilization', latest.utilizationPct, '%', prev ? latest.utilizationPct - prev.utilizationPct : null),
-                card('Contamination', latest.contaminatedBins, '', prev ? latest.contaminatedBins - prev.contaminatedBins : null),
-                card('GR-ZONE', latest.grTotal, '', prev ? latest.grTotal - prev.grTotal : null)
-            ].join('');
+                card('Contamination', latest.contaminatedBins, '', prev ? latest.contaminatedBins - prev.contaminatedBins : null)
+            ];
+            const special = getPrimarySpecialLocation();
+            if (special) cards.push(card(special.label, latest.grTotal, '', prev ? latest.grTotal - prev.grTotal : null));
+            el.innerHTML = cards.join('');
         }
 
         function renderTopMovers() {
@@ -4072,7 +4113,7 @@
             if(mode==='highvalue') qs('chkHighValue').checked=true;
             if(mode==='projected') {
                 if(currentStats.grStats && currentStats.grStats.total>0){openGRDrilldown('ALL');return;}
-                setStatus('No GR-ZONE pallets are currently included in projected load.', 'info');
+                setStatus(`No ${getSpecialLocationLabel()} pallets are currently included in projected load.`, 'info');
             }
             applyFilters();
             if(mode!=='projected') scrollToWarehouseFilters();
@@ -4151,7 +4192,8 @@
             const actions=[];
             const plan = buildZonePutawayPlan();
             if ((plan.noSlotCount || 0) > 0) {
-                actions.push(actionCard({tone:'rose',title:'HU without empty slot',metric:String(plan.noSlotCount),description:`${plan.noSlotCount} GR HU(s) have no matching empty bin. These will stay in GR-ZONE.`,button:'Open no-slot list',onclick:"openPutawaySuggestionsModal()"}));
+                const specialLabel = getSpecialLocationLabel();
+                actions.push(actionCard({tone:'rose',title:'HU without empty slot',metric:String(plan.noSlotCount),description:`${plan.noSlotCount} ${specialLabel} HU(s) have no matching empty bin. These will stay in ${specialLabel}.`,button:'Open no-slot list',onclick:"openPutawaySuggestionsModal()"}));
             }
             if ((plan.mixedBlockedCount || 0) > 0) {
                 actions.push(actionCard({tone:'amber',title:'Mixed HU blocked',metric:String(plan.mixedBlockedCount),description:`${plan.mixedBlockedCount} mixed-category HU(s) are blocked from auto-putaway and need a manual rule or review.`,button:'Review mixed HUs',onclick:"openPutawaySuggestionsModal()"}));
@@ -4886,7 +4928,7 @@
                 <div class="putaway-summary-card"><span class="putaway-summary-label">Mixed blocked</span><span class="putaway-summary-value text-rose-600">${plan.mixedBlockedCount.toLocaleString()}</span></div>
             `;
             if (!plan.suggestions.length) {
-                body.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400 italic">No GR-ZONE HU data is available. Detailed Stock must include HU values for GR-ZONE rows.</td></tr>';
+                body.innerHTML = `<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400 italic">No ${escapeHTML(getSpecialLocationLabel())} HU data is available. Detailed Stock must include HU values for ${escapeHTML(getSpecialLocationLabel())} rows.</td></tr>`;
                 return;
             }
             body.innerHTML = plan.suggestions.map(item => {
@@ -5478,15 +5520,14 @@
 
         function openDrilldown(zone, binCat, aisle) {
             qs('modalTitle').innerText = `Zone ${zone} - Aisle ${aisle}`;
+            const categoryIds = modalCategoryIds();
             qs('modalTableHeader').innerHTML = `
                 <tr>
                     <th class="px-2 py-3 w-8"></th>
                     <th class="px-4 py-3 text-left font-semibold text-slate-600 border-b border-slate-200">Storage Bin</th>
                     <th class="px-4 py-3 text-left font-semibold text-slate-600 border-b border-slate-200">Designated Cat</th>
                     <th class="px-4 py-3 text-center font-semibold text-slate-600 border-b border-slate-200">Pallets</th>
-                    <th class="px-4 py-3 text-center font-bold text-slate-800 bg-slate-200/50 border-b border-slate-200">RAW MAT</th>
-                    <th class="px-4 py-3 text-center font-bold text-slate-800 bg-orange-50/50 border-b border-slate-200">BATTERY</th>
-                    <th class="px-4 py-3 text-center font-bold text-slate-800 bg-sky-50/50 border-b border-slate-200">PACKING</th>
+                    ${categoryIds.map(id => `<th class="px-4 py-3 text-center font-bold text-slate-800 border-b border-slate-200">${escapeHTML(profileCategoryLabel(id))}</th>`).join('')}
                     <th class="px-4 py-3 text-center font-semibold text-slate-600 bg-amber-50 border-b-2 border-amber-200">Status</th>
                 </tr>
             `;
@@ -5568,9 +5609,11 @@
         function renderAisleModalRows(rows) {
             const tbody = qs('modalTableBody');
             tbody.innerHTML = '';
+            const categoryIds = modalCategoryIds();
+            const modalColumnCount = 5 + categoryIds.length;
 
             if (!rows.length) {
-                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400 italic">No bins found matching this modal search.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${modalColumnCount}" class="px-4 py-8 text-center text-slate-400 italic">No bins found matching this modal search.</td></tr>`;
                 return;
             }
 
@@ -5587,9 +5630,10 @@
                 if (isContam) trClass = 'bg-rose-50 hover:bg-rose-100 transition-colors border-l-4 border-l-rose-500';
 
                 let actionBadge = isContam ? `<span class="px-2 py-1 bg-rose-500 text-white rounded text-[11px] font-bold">CONTAMINATED</span>` : `<span class="text-slate-500 text-xs font-medium">OK</span>`;
-                let rmTxt = row.rmQty > 0 ? `<span class="font-bold text-slate-900 bg-slate-200 px-2 py-0.5 rounded">${row.rmQty}</span>` : `<span class="text-slate-300">0</span>`;
-                let batTxt = row.batQty > 0 ? `<span class="font-bold text-slate-900 bg-orange-200 px-2 py-0.5 rounded">${row.batQty}</span>` : `<span class="text-slate-300">0</span>`;
-                let packTxt = row.packQty > 0 ? `<span class="font-bold text-slate-900 bg-sky-200 px-2 py-0.5 rounded">${row.packQty}</span>` : `<span class="text-slate-300">0</span>`;
+                const categoryCells = categoryIds.map(id => {
+                    const value = modalCategoryValue(row, id);
+                    return `<td class="px-4 py-2 text-center">${value > 0 ? `<span class="font-bold text-slate-900 bg-slate-200 px-2 py-0.5 rounded">${value}</span>` : '<span class="text-slate-300">0</span>'}</td>`;
+                }).join('');
                 let expandIcon = hasDetails ? getChevronSvg(`icon-${idx}`, isOpen) : '';
 
                 let binIcons = '';
@@ -5613,9 +5657,7 @@
                     <td class="px-4 py-2 font-bold text-slate-800">${binDisplay}</td>
                     <td class="px-4 py-2 text-xs font-black text-slate-500">${escapeHTML(row.binCat)}</td>
                     <td class="px-4 py-2 text-center font-bold text-slate-800">${row.palletCount}</td>
-                    <td class="px-4 py-2 text-center">${rmTxt}</td>
-                    <td class="px-4 py-2 text-center">${batTxt}</td>
-                    <td class="px-4 py-2 text-center">${packTxt}</td>
+                    ${categoryCells}
                     <td class="px-4 py-2 text-center">${actionBadge}</td>
                 `;
                 fragment.appendChild(tr);
@@ -5624,7 +5666,7 @@
                     let detTr = document.createElement('tr');
                     detTr.id = `detail-${idx}`;
                     detTr.className = `details-row ${isOpen ? 'open' : ''} bg-slate-100/50 border-b border-slate-200`;
-                    let detHtml = `<td colspan="8" class="p-4"><div class="bin-detail-wrap rounded border border-slate-200 bg-white shadow-inner overflow-hidden">
+                    let detHtml = `<td colspan="${modalColumnCount}" class="p-4"><div class="bin-detail-wrap rounded border border-slate-200 bg-white shadow-inner overflow-hidden">
                         <div class="px-3 py-2 border-b border-slate-100 bg-slate-50/70"><input type="text" class="bin-filter w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Filter items in this bin (PN, description, category, batch)..." oninput="binFilter(this)"></div>
                         <table class="min-w-full text-xs">
                         <thead class="bg-slate-100 text-slate-500"><tr><th class="px-3 py-2 text-center w-8"><input type="checkbox" onchange="binSelectAll(this)" title="Select/clear all visible"></th><th class="px-3 py-2 text-left">PN</th><th class="px-3 py-2 text-left">Description</th><th class="px-3 py-2 text-left">Category</th><th class="px-3 py-2 text-right">Qty</th><th class="px-3 py-2 text-left">Batch</th></tr></thead><tbody>`;
@@ -5679,10 +5721,10 @@
 
             let grItems = [];
             if (comboName === 'ALL') {
-                qs('modalTitle').innerText = 'GR-ZONE Details - All Inbound Pallets';
+                qs('modalTitle').innerText = `${getSpecialLocationLabel()} Details - All Inbound Pallets`;
                 grItems = currentStats.grStats.items || [];
             } else {
-                qs('modalTitle').innerText = `GR-ZONE Details - [${comboName}]`;
+                qs('modalTitle').innerText = `${getSpecialLocationLabel()} Details - [${comboName}]`;
                 let targetHUs = new Set();
                 let huToCats = currentStats.grStats.huToCats || {};
                 for (let hu in huToCats) {
@@ -5731,7 +5773,7 @@
             tbody.innerHTML = '';
 
             if (!groups.length) {
-                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400 italic">No GR-ZONE pallets found matching this modal search.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400 italic">No ${escapeHTML(getSpecialLocationLabel())} pallets found matching this modal search.</td></tr>`;
                 return;
             }
 
@@ -6363,10 +6405,23 @@
         function configureWarehouseProfile(profileApi) {
             if (!profileApi) throw new Error('Warehouse profile did not load.');
             const primarySpecial = typeof profileApi.getPrimarySpecialLocation === 'function' ? profileApi.getPrimarySpecialLocation() : null;
-            const specialLabel = (primarySpecial && primarySpecial.label) || profileApi.specialLocationLabel('gr-zone');
-            if (specialLabel) STORAGE_BIN_GR = specialLabel;
+            const specialLabel = (primarySpecial && primarySpecial.label) || '';
+            STORAGE_BIN_GR = specialLabel;
             document.querySelectorAll('[data-special-location-label]').forEach(element => { element.textContent = specialLabel || 'Special location'; });
             const specialSection = qs('specialLocationSection'); if (specialSection) specialSection.hidden = !primarySpecial;
+            document.querySelectorAll('[data-special-location-dependent]').forEach(element => { element.hidden = !primarySpecial; });
+            const storageScope = qs('storageScopeLabel'); if (storageScope) storageScope.textContent = primarySpecial ? `(Without ${specialLabel})` : '(All storage)';
+            const projectedScope = qs('projectedScopeLabel'); if (projectedScope) projectedScope.textContent = primarySpecial ? `(With ${specialLabel})` : '';
+            const projectedCard = qs('projectedLoadKpi'); if (projectedCard) projectedCard.title = primarySpecial ? `Open ${specialLabel} items included in projected load` : '';
+            const specialMetric = qs('trendMetricSpecialOption');
+            if (specialMetric) {
+                specialMetric.textContent = primarySpecial ? `${specialLabel} Pallets` : 'Special Location Pallets';
+                specialMetric.hidden = !primarySpecial;
+                const metricSelect = qs('trendMetricSelect');
+                if (!primarySpecial && metricSelect && metricSelect.value === 'grTotal') metricSelect.value = 'totalPallets';
+            }
+            if (typeof trendMetricMeta !== 'undefined' && trendMetricMeta.grTotal) trendMetricMeta.grTotal.label = primarySpecial ? `${specialLabel} Pallets` : 'Special Location Pallets';
+            renderMaterialCategoryLegend(profileApi);
             const snapshotIds = typeof profileApi.getSnapshotCategories === 'function' ? profileApi.getSnapshotCategories().map(item => item.id) : [];
             if (!snapshotIds.length) throw new Error('Active warehouse profile must define at least one snapshot category.');
             SNAPSHOT_CATS = snapshotIds;
