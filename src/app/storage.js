@@ -40,7 +40,20 @@
         const profileId = source && String(source.id || '').trim();
         if (!profileId) throw new Error('Cannot mark shared warehouse state without an active profile ID.');
         const marker = { stateSchemaVersion: 2, profileId, updatedAt: new Date().toISOString() };
-        SharedStore.set(SHARED_V2_MARKER_KEY, JSON.stringify(marker));
+        const serialized = JSON.stringify(marker);
+        SharedStore.set(SHARED_V2_MARKER_KEY, serialized);
+        // Profile loading can finish before the Tauri login overlay grants edit
+        // access. Retry the same marker briefly so the first post-login write
+        // still records the v2 identity without touching the boot implementation.
+        if (localInvoke && typeof global.setTimeout === 'function') {
+            let attempts = 0;
+            const retry = () => {
+                attempts += 1;
+                SharedStore.set(SHARED_V2_MARKER_KEY, serialized);
+                if (attempts < 8) global.setTimeout(retry, 1000);
+            };
+            global.setTimeout(retry, 1000);
+        }
         return marker;
     }
     function persist(invoke, file, value) { return invoke ? invoke('write_local_file_named', { name: file, content: JSON.stringify(value) }).catch(() => {}) : Promise.resolve(); }
