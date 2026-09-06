@@ -108,7 +108,15 @@
         const path = global.MachineConfig && typeof global.MachineConfig.get === 'function' ? global.MachineConfig.get('activeProfilePath', null) : null;
         return path || global.WAREHOUSE_PROFILE_OBJECT || global.WAREHOUSE_PROFILE_PATH || DEFAULT_PROFILE_PATH;
     });
-    const reloadConfiguredProfile = () => configuredProfile().then(load).then(profileApi => { global.WarehouseProfile = profileApi; return profileApi; });
+    const reloadConfiguredProfile = () => configuredProfile().then(load).then(profileApi => {
+        global.WarehouseProfile = profileApi;
+        const config = global.MachineConfig && typeof global.MachineConfig.get === 'function' ? global.MachineConfig : null;
+        const shouldMark = config && (config.get('migratedFrom', null) === 'v35' || config.get('sharedProfileId', null));
+        if (shouldMark && global.WarehouseSharedState && typeof global.WarehouseSharedState.markSharedWarehouseV2 === 'function') {
+            global.WarehouseSharedState.markSharedWarehouseV2(profileApi);
+        }
+        return profileApi;
+    });
     global.WarehouseProfileReload = reloadConfiguredProfile;
     global.WarehouseProfileReady = reloadConfiguredProfile().catch(error => { showLoadError(error); throw error; });
 })(window);
