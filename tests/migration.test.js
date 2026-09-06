@@ -34,7 +34,8 @@ function contextFor(machineRaw, sharedRaw) {
   assert.strictEqual(v2Generic.context.window.MachineConfig.get('activeProfilePath'), './profiles/generic.json');
   assert.notStrictEqual(v2Generic.context.window.MachineConfig.get('activeProfilePath'), './profiles/electronics-demo.json');
 
-  // E. A custom v2 marker opens the generic setup path and requests profile selection.
+  // E. A custom v2 marker opens the generic setup path and requests profile selection;
+  // the loader must keep the custom ID until the user explicitly activates a profile.
   const custom = contextFor('', markerState('cold-chain')); await custom.context.window.MachineConfigReady;
   assert.strictEqual(custom.context.window.MachineConfig.get('activeProfilePath'), './profiles/generic.json');
   assert.strictEqual(custom.context.window.MachineConfig.get('sharedProfileId'), 'cold-chain');
