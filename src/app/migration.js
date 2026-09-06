@@ -9,7 +9,7 @@
     async function migrate(machineConfig, detector) {
         const config = machineConfig || {};
         const result = decideMigration(Object.assign({}, config, await (detector ? detector() : {})));
-        if (result.action !== 'keep' && global.MachineConfig) { global.MachineConfig.set('activeProfilePath', result.profilePath); global.MachineConfig.set('migrationVersion', 2); }
+        if (result.action !== 'keep' && global.MachineConfig) { await global.MachineConfig.set('activeProfilePath', result.profilePath); await global.MachineConfig.set('migrationVersion', 2); }
         return result;
     }
     global.WarehouseMigration = { decideMigration, migrate };

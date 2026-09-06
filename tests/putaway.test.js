@@ -1,2 +1,27 @@
-const assert = require('assert'); const fs = require('fs'); const vm = require('vm'); const context = { window: {} }; vm.runInNewContext(fs.readFileSync('src/profile.js', 'utf8'), Object.assign(context, { fetch: async () => ({ ok: true, json: async () => JSON.parse(fs.readFileSync('src/profiles/electronics-demo.json', 'utf8')) }) })); assert.ok(true); console.log('putaway compatibility tests passed');
+const assert = require('assert'); const fs = require('fs'); const vm = require('vm');
+const profile = JSON.parse(fs.readFileSync('src/profiles/electronics-demo.json', 'utf8'));
+const context = { console, window: {}, fetch: async () => ({ ok: true, json: async () => profile }) };
+vm.runInNewContext(fs.readFileSync('src/profile.js', 'utf8'), context, { filename: 'profile.js' });
+vm.runInNewContext(fs.readFileSync('src/app/putaway-engine.js', 'utf8'), context, { filename: 'putaway-engine.js' });
+(async () => {
+  const api = await context.window.WarehouseProfileReady; const engine = context.window.WarehouseApp;
+  const settings = { blockMixedHandlingUnits: true, rules: profile.putaway.rules };
+  const choose = (item, bins) => engine.planPutaway({ profile: api, settings, bins, itemsByHU: { HU: [item] } }).suggestions[0];
+  assert.strictEqual(choose({ pn: '90123', desc: 'Phone module', category: 'RAW MATERIAL' }, [{ bin: 'O5-A01', palletCount: 0 }, { bin: 'O5-A80', palletCount: 0 }]).suggestedBin, 'O5-A01');
+  assert.strictEqual(choose({ pn: '52123', desc: 'PCBA board', category: 'RAW MATERIAL' }, [{ bin: 'O5-A80', palletCount: 0 }]).suggestedBin, 'O5-A80');
+  assert.strictEqual(choose({ pn: '57123', desc: 'LCD display', category: 'RAW MATERIAL' }, [{ bin: 'O5-A80', palletCount: 0 }, { bin: 'O5-A01', palletCount: 0 }]).suggestedBin, 'O5-A01');
+  const under = engine.findMatchingPutawayRule([{ pn: '57123', desc: 'UNDERDISPLAY fingerprint', category: 'RAW MATERIAL' }], settings, api);
+  assert.notStrictEqual(under.rule && under.rule.id, 'display-lcd');
+  assert.strictEqual(choose({ pn: '40123', desc: 'Battery cell', category: 'BATTERY' }, [{ bin: 'O3-B01', palletCount: 0 }]).suggestedBin, 'O3-B01');
+  assert.strictEqual(choose({ pn: '50123', desc: 'Packing carton', category: 'PACKING' }, [{ bin: 'O1-A01', palletCount: 0 }]).suggestedBin, 'O1-A01');
+  assert.strictEqual(choose({ pn: '10123', desc: 'Raw material', category: 'RAW MATERIAL' }, [{ bin: 'O3-A01', palletCount: 0 }]).suggestedBin, 'O3-A01');
+  assert.strictEqual(engine.binMatchesPutawayRule('O5-A80', { targetPatterns: ['O5-A*'], excludePatterns: ['O5-A8*'] }), false);
+  const mixed = engine.planPutaway({ profile: api, settings, bins: [{ bin: 'O1-A01', palletCount: 0 }], itemsByHU: { MIXED: [{ pn: '1', desc: 'battery', category: 'BATTERY' }, { pn: '2', desc: 'packing', category: 'PACKING' }] } });
+  assert.strictEqual(mixed.suggestions[0].status, 'mixed');
+  const priority = engine.findMatchingPutawayRule([{ pn: '90123', desc: 'phone', category: 'RAW MATERIAL' }], settings, api); assert.strictEqual(priority.rule.id, 'phone');
+  const genericProfile = { profile: { putaway: { enabled: false, rules: [] } }, categoryId: value => String(value || '').toLowerCase() };
+  const noRule = engine.planPutaway({ profile: genericProfile, settings: { blockMixedHandlingUnits: false, rules: [] }, bins: [{ bin: 'O3-A01', palletCount: 0 }], itemsByHU: { HU: [{ pn: '1', category: 'ambient', desc: 'ambient' }] } });
+  assert.strictEqual(noRule.suggestions[0].status, 'no-rule');
+  console.log('putaway production tests passed');
+})().catch(error => { console.error(error); process.exitCode = 1; });
 

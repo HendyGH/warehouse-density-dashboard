@@ -31,7 +31,9 @@
     }
     async function activate(textOrProfile, profileApi) {
         const validated = typeof textOrProfile === 'string' ? parseAndValidate(textOrProfile, profileApi || global.WarehouseProfile) : (profileApi || global.WarehouseProfile).validate(textOrProfile);
-        if (global.MachineConfig && typeof global.MachineConfig.set === 'function') global.MachineConfig.set('activeProfile', validated);
+        if (global.MachineConfig && typeof global.MachineConfig.set === 'function') {
+            await global.MachineConfig.set('activeProfile', validated);
+        }
         global.WarehouseProfile = await (profileApi || global.WarehouseProfile).load(validated);
         return global.WarehouseProfile;
     }

@@ -107,6 +107,15 @@ vm.runInNewContext(profileSource, context, { filename: 'profile.js' });
     classifiers: [{ id: 'broken', tags: [], match: { any: 'not-an-array' } }],
     specialLocations: []
   }), /match\.any must be an array/);
+  const base = { schemaVersion: 1, id: 'nested', categories: [{ id: 'battery', label: 'BATTERY', aliases: ['BATTERY'] }], classifiers: [], specialLocations: [], unknownCategoryPolicy: 'preserve' };
+  assert.throws(() => profile.validate(Object.assign({}, base, { putaway: { rules: 'oops' } })), /putaway\.rules must be an array/);
+  assert.throws(() => profile.validate(Object.assign({}, base, { segregation: { rules: {} } })), /segregation\.rules must be an array/);
+  assert.throws(() => profile.validate(Object.assign({}, base, { segregation: { rules: [{ id: 'x', allowedItemCategories: 'battery' }] } })), /allowedItemCategories must be an array/);
+  assert.throws(() => profile.validate(Object.assign({}, base, { putaway: { rules: [{ id: 'x', when: {}, destination: { include: 'O3*', exclude: [] } }] } })), /destination\.include must be an array/);
+  assert.throws(() => profile.validate(Object.assign({}, base, { modules: { density: 'yes' } })), /modules\.density must be boolean/);
+  assert.throws(() => profile.validate(Object.assign({}, base, { dataMappings: { detail: { bin: '' } } })), /non-empty header/);
+  assert.throws(() => profile.validate(Object.assign({}, base, { putaway: { fallbackDestination: { include: 'O3*', exclude: [] } } })), /fallbackDestination\.include must be an array/);
+  assert.throws(() => profile.validate(Object.assign({}, base, { specialLocations: [{ id: 'x', label: 'X', aliases: [], tags: 'receiving', behavior: { excludeFromStorageCapacity: 'yes' } }] })), /tags must be an array/);
   assert.strictEqual(generic.classifiers.length, 0);
   console.log('profile regression tests passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

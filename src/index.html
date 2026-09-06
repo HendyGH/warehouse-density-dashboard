@@ -8,6 +8,8 @@
     <script src="app/mappings.js"></script>
     <script src="app/zone-detection.js"></script>
     <script src="app/modules.js"></script>
+    <script src="app/putaway-engine.js"></script>
+    <script src="app/category-engine.js"></script>
     <script src="app/profile-manager.js"></script>
     <script src="app/onboarding.js"></script>
     <script src="tauri_boot.js"></script>
@@ -1694,7 +1696,7 @@
                         <h1 class="text-3xl font-black text-slate-800 tracking-tight">Warehouse Dashboard</h1>
                         <p class="text-slate-500 mt-1 font-medium">Storage utilization, contamination risk, and prioritized operational actions.</p>
                         <p id="generatedStamp" class="text-xs font-bold text-slate-500 mt-1">Generated — not yet</p>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Version v35 optimized build v18 · Configurable Putaway Rules · Demand Pressure Only · O3 Fallback</p>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Version v2 · Profile-driven putaway rules · Demand pressure</p>
                     </div>
                     <section class="npi-schedule" aria-label="NPI Schedule">
                         <h2 class="npi-schedule-title">NPI Schedule</h2>
@@ -1837,15 +1839,15 @@
             </div>
 
             </div>
-            <div class="dash-section" data-dash-section="gr">
-            <div class="dash-section-bar"><button type="button" class="dash-drag-handle" draggable="true" title="Drag to move section" aria-label="Move GR section">::</button><span>GR-ZONE</span></div>
+            <div id="specialLocationSection" class="dash-section" data-dash-section="gr">
+            <div class="dash-section-bar"><button type="button" class="dash-drag-handle" draggable="true" title="Drag to move section" aria-label="Move special location section">::</button><span data-special-location-label>GR-ZONE</span></div>
             <div id="grZoneBanner" class="hidden bg-white p-5 rounded-xl shadow-sm border border-blue-200 mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                     <h3 class="text-base font-black text-blue-700 flex items-center gap-2">
                         <span class="flex items-center justify-center w-7 h-7 bg-blue-100 rounded-lg">
                             <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
                         </span>
-                        GR-ZONE Area
+                        <span data-special-location-label>GR-ZONE</span> Area
                     </h3>
                     <p class="text-xs text-slate-400 mt-1 ml-9">Inbound items pending putaway. Click any badge to view breakdown details.</p>
                     <div id="grHighValueAlert" class="mt-2 ml-9 flex items-center gap-3"></div>
@@ -1948,19 +1950,19 @@
                     <div class="flex items-center gap-1.5 text-xs font-bold text-slate-600"><div class="w-4 h-4 rounded border-2 border-slate-800 bg-slate-400 text-center leading-none text-[8px] font-black pt-[1px] text-slate-900">RM</div> Raw Mat</div>
                     <div class="flex items-center gap-1.5 text-xs font-bold text-slate-600"><div class="w-4 h-4 rounded border-2 border-slate-800 bg-orange-500 text-center leading-none text-[8px] font-black pt-[1px] text-slate-900">BT</div> Battery</div>
                     <div class="flex items-center gap-1.5 text-xs font-bold text-slate-600"><div class="w-4 h-4 rounded border-2 border-slate-800 bg-sky-500 text-center leading-none text-[8px] font-black pt-[1px] text-slate-900">PK</div> Packing</div>
-                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-600 ml-2">
+                    <div data-profile-classifier="pcba" class="flex items-center gap-1.5 text-xs font-bold text-slate-600 ml-2">
                         <div class="w-4 h-4 rounded bg-slate-200 border border-slate-300 flex items-center justify-center">
                             <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
                         </div> 
                         PCBA
                     </div>
-                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                    <div data-profile-classifier="phone" class="flex items-center gap-1.5 text-xs font-bold text-slate-600">
                         <div class="w-4 h-4 rounded bg-slate-200 border border-slate-300 flex items-center justify-center">
                             <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                         </div> 
                         Phone
                     </div>
-                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                    <div data-profile-classifier="lcd" class="flex items-center gap-1.5 text-xs font-bold text-slate-600">
                         <div class="w-4 h-4 rounded bg-slate-200 border border-slate-300 flex items-center justify-center">
                             <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" stroke-width="2.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 17v3M9 20h6"/></svg>
                         </div> 
@@ -2107,7 +2109,7 @@
         <div class="putaway-modal-panel" onclick="event.stopPropagation()">
             <div class="putaway-modal-head">
                 <div>
-                    <h3 id="putawayRulesTitle" class="text-xl font-black text-slate-800">Configurable GR-ZONE Putaway Rules</h3>
+                    <h3 id="putawayRulesTitle" class="text-xl font-black text-slate-800">Configurable <span data-special-location-label>GR-ZONE</span> Putaway Rules</h3>
                     <p class="text-xs text-slate-500 mt-1">Rules are evaluated from the lowest priority number to the highest. The first matching rule wins.</p>
                 </div>
                 <button type="button" onclick="closePutawayRulesModal()" aria-label="Close putaway rules" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded transition-colors">
@@ -2164,7 +2166,7 @@
         <div class="putaway-modal-panel" onclick="event.stopPropagation()">
             <div class="putaway-modal-head">
                 <div>
-                    <h3 id="putawaySuggestionsTitle" class="text-xl font-black text-slate-800">GR-ZONE Putaway Suggestions</h3>
+                    <h3 id="putawaySuggestionsTitle" class="text-xl font-black text-slate-800"><span data-special-location-label>GR-ZONE</span> Putaway Suggestions</h3>
                     <p class="text-xs text-slate-500 mt-1">One HU is assigned to one currently empty bin. Suggestions follow the saved rule priority.</p>
                 </div>
                 <button type="button" onclick="closePutawaySuggestionsModal()" aria-label="Close putaway suggestions" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded transition-colors">
@@ -3112,6 +3114,7 @@
             let grHasPCBA = false;
             let grHasPhone = false;
             let grHasLCD = false;
+            let grClassifierCounts = {};
             let grItems = [];
             let grItemsByHU = {};
             const activeProfileConfig = (window.WarehouseProfile && window.WarehouseProfile.profile) || {};
@@ -3168,6 +3171,8 @@
                             
                             if (categoryId) grHUToCats[hu].add(categoryId);
 
+                            const classifierResults = window.WarehouseProfile && typeof window.WarehouseProfile.classify === 'function' ? window.WarehouseProfile.classify({ pn, desc }) : [];
+                            classifierResults.forEach(result => { grClassifierCounts[result.id] = (grClassifierCounts[result.id] || 0) + 1; });
                             if (hasProfileClassifier(pn, desc, 'pcba')) grHasPCBA = true;
                             if (hasProfileClassifier(pn, desc, 'phone')) grHasPhone = true;
                             if (isLCD(pn, desc))    grHasLCD  = true;
@@ -3268,6 +3273,7 @@
                 hasPCBA: grHasPCBA,
                 hasPhone: grHasPhone,
                 hasLCD: grHasLCD,
+                classifiers: grClassifierCounts,
                 huToCats: grHUToCats,
                 items: grItems,
                 itemsByHU: grItemsByHU
@@ -3301,7 +3307,10 @@
                 if (currentStats.warnings.skippedDetailRows > 0) warnings.push(`${currentStats.warnings.skippedDetailRows} current detail row(s) were skipped because they had fewer than 6 columns.`);
                 if (currentStats.warnings.skippedMasterRows > 0) warnings.push(`${currentStats.warnings.skippedMasterRows} current master row(s) were skipped because Storage Bin was missing.`);
                 if (currentStats.warnings.invalidMasterPalletRows > 0) warnings.push(`${currentStats.warnings.invalidMasterPalletRows} current master row(s) had invalid pallet counts and were treated as 0.`);
-                if (currentStats.warnings.unassignedBinCatRows > 0) warnings.push(`${currentStats.warnings.unassignedBinCatRows} bin(s) have no BIN CATEGORY (UNASSIGNED). Demand pressure counts them as RAW MATERIAL.`);
+                if (currentStats.warnings.unassignedBinCatRows > 0) {
+                    const fallbackLabel = profileCategoryLabel((window.WarehouseProfile && window.WarehouseProfile.getDefaultCategoryId && window.WarehouseProfile.getDefaultCategoryId()) || '');
+                    warnings.push(`${currentStats.warnings.unassignedBinCatRows} bin(s) have no BIN CATEGORY (UNASSIGNED). Demand pressure uses ${fallbackLabel || 'the profile default category'}.`);
+                }
                 setImportWarnings(warnings);
                 const now = new Date();
                 prefSet(LAST_GENERATED_KEY, now.toISOString());
@@ -3386,13 +3395,15 @@
                 banner.classList.remove('hidden');
                 badgesContainer.innerHTML = '';
 
-                const standardOrder = ['RAW MAT', 'BATTERY', 'PACKING'];
+                const standardOrder = profileCategoryIds().map(id => profileCategoryDisplay(id));
 
                 function getGRBadgeStyle(name) {
-                    if (name === 'RAW MAT') return 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100';
-                    if (name === 'BATTERY') return 'bg-amber-50 border-amber-200 text-orange-500 hover:bg-amber-100';
-                    if (name === 'PACKING') return 'bg-sky-50 border-sky-200 text-sky-600 hover:bg-sky-100';
-                    return 'bg-purple-50 border-purple-300 text-purple-700 font-bold border-dashed hover:bg-purple-100'; 
+                    const resolved = resolveCategory(name);
+                    const tone = resolved && resolved.style && resolved.style.tone;
+                    if (tone === 'orange') return 'bg-amber-50 border-amber-200 text-orange-500 hover:bg-amber-100';
+                    if (tone === 'sky') return 'bg-sky-50 border-sky-200 text-sky-600 hover:bg-sky-100';
+                    if (tone === 'slate') return 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100';
+                    return 'bg-purple-50 border-purple-300 text-purple-700 font-bold border-dashed hover:bg-purple-100';
                 }
 
                 // 1. Render standar kategori utama
@@ -3431,14 +3442,16 @@
                 let alertContainer = document.getElementById('grHighValueAlert');
                 alertContainer.innerHTML = '';
                 
-                if (gr.hasPCBA || gr.hasPhone || gr.hasLCD) {
+                const highValueClassifiers = Object.keys(gr.classifiers || {}).filter(id => {
+                    const classifier = window.WarehouseProfile && typeof window.WarehouseProfile.classifier === 'function' ? window.WarehouseProfile.classifier(id) : null;
+                    return classifier && Array.isArray(classifier.tags) && classifier.tags.includes('high-value');
+                });
+                if (highValueClassifiers.length || gr.hasPCBA || gr.hasPhone || gr.hasLCD) {
                     let alertHtml = `<span class="bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold flex items-center gap-1.5 shadow-sm">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                         High Value unsecured: 
                     `;
-                    if (gr.hasPCBA)  alertHtml += `<span class="flex items-center gap-0.5 bg-white text-slate-800 border border-slate-200 rounded px-1">${pcbaIconPurple} PCBA</span>`;
-                    if (gr.hasPhone) alertHtml += `<span class="flex items-center gap-0.5 bg-white text-slate-800 border border-slate-200 rounded px-1 ml-1">${phoneIconBlue} Phone</span>`;
-                    if (gr.hasLCD)   alertHtml += `<span class="flex items-center gap-0.5 bg-white text-slate-800 border border-slate-200 rounded px-1 ml-1">${lcdIconCyan} LCD</span>`;
+                    highValueClassifiers.forEach(id => { const classifier = window.WarehouseProfile.classifier(id); const label = classifier.label || id; alertHtml += `<span class="flex items-center gap-0.5 bg-white text-slate-800 border border-slate-200 rounded px-1 ml-1">${escapeHTML(label)}</span>`; });
                     alertHtml += `</span>`;
                     alertContainer.innerHTML = alertHtml;
                 }
@@ -3650,7 +3663,8 @@
             renderTrendDashboard();
             updateTopMetrics();
             renderOperationalActionCenter();
-            setStatus(`Snapshot saved for ${snapshotDate} with PACKING / BATTERY / RAW MATERIAL. History now has ${trendSnapshots.length} snapshot(s).`, 'success');
+            const snapshotCategoryText = SNAPSHOT_CATS.map(id => profileCategoryLabel(id)).join(' / ');
+            setStatus(`Snapshot saved for ${snapshotDate}${snapshotCategoryText ? ` with ${snapshotCategoryText}` : ''}. History now has ${trendSnapshots.length} snapshot(s).`, 'success');
         }
 
         function deleteLatestSnapshot() {
@@ -3679,17 +3693,18 @@
         function exportTrendHistoryCSV() {
             if (!trendSnapshots.length) { alert('No snapshot history to export.'); return; }
             sortTrendSnapshots();
-            const rows = [["Snapshot ID", "Snapshot Date", "Label", "Saved At", "Total Capacity", "Storage Used", "Utilization %", "Projected Load", "Projected %", "Empty Capacity", "Projected Empty", "Contaminated Bins", "Contamination %", "GR-ZONE Pallets", "Zone", "Zone Pallets", "Zone Contamination", "Zone Utilization %", "Zone Packing", "Zone Battery", "Zone Raw Material"]];
+            const categoryHeaders = SNAPSHOT_CATS.map(id => `Zone ${profileCategoryLabel(id)}`);
+            const rows = [["Snapshot ID", "Snapshot Date", "Label", "Saved At", "Total Capacity", "Storage Used", "Utilization %", "Projected Load", "Projected %", "Empty Capacity", "Projected Empty", "Contaminated Bins", "Contamination %", "GR-ZONE Pallets", "Zone", "Zone Pallets", "Zone Contamination", "Zone Utilization %"].concat(categoryHeaders)];
             trendSnapshots.forEach((snap, idx) => {
                 const zones = Object.keys(snap.zones || {}).sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
                 const savedAt = snap.savedAt || snap.generatedAt || '';
                 if (!zones.length) {
-                    rows.push([snap.id, snap.snapshotDate, getSnapshotLabel(snap, idx), savedAt, snap.totalMasterBins, snap.totalPallets, snap.utilizationPct, snap.projectedLoad, snap.projectedPct, snap.emptyNormal, snap.emptyProjected, snap.contaminatedBins, snap.contaminatedPct, snap.grTotal, '', '', '', '', '', '', '']);
+                    rows.push([snap.id, snap.snapshotDate, getSnapshotLabel(snap, idx), savedAt, snap.totalMasterBins, snap.totalPallets, snap.utilizationPct, snap.projectedLoad, snap.projectedPct, snap.emptyNormal, snap.emptyProjected, snap.contaminatedBins, snap.contaminatedPct, snap.grTotal, '', '', '', ''].concat(SNAPSHOT_CATS.map(() => '')));
                 } else {
                     zones.forEach(zone => {
                         const z = snap.zones[zone];
                         const exportCats = snapshotCatPalletsFromZone(z);
-                        rows.push([snap.id, snap.snapshotDate, getSnapshotLabel(snap, idx), savedAt, snap.totalMasterBins, snap.totalPallets, snap.utilizationPct, snap.projectedLoad, snap.projectedPct, snap.emptyNormal, snap.emptyProjected, snap.contaminatedBins, snap.contaminatedPct, snap.grTotal, zone, z.pallets, z.contam, z.utilizationPct, exportCats[SNAPSHOT_CATS[0]] || 0, exportCats[SNAPSHOT_CATS[1]] || 0, exportCats[SNAPSHOT_CATS[2]] || 0]);
+                        rows.push([snap.id, snap.snapshotDate, getSnapshotLabel(snap, idx), savedAt, snap.totalMasterBins, snap.totalPallets, snap.utilizationPct, snap.projectedLoad, snap.projectedPct, snap.emptyNormal, snap.emptyProjected, snap.contaminatedBins, snap.contaminatedPct, snap.grTotal, zone, z.pallets, z.contam, z.utilizationPct].concat(SNAPSHOT_CATS.map(id => exportCats[id] || 0)));
                     });
                 }
             });
@@ -3777,10 +3792,15 @@
                 const zoneIndex = idx('Zone');
                 const zone = zoneIndex >= 0 ? String(row[zoneIndex] || '').trim() : '';
                 if (zone) {
-                    const packing = idx('Zone Packing') >= 0 ? toNumber(row[idx('Zone Packing')]) : null;
-                    const battery = idx('Zone Battery') >= 0 ? toNumber(row[idx('Zone Battery')]) : null;
-                    const raw = idx('Zone Raw Material') >= 0 ? toNumber(row[idx('Zone Raw Material')]) : null;
-                    const hasCats = packing !== null || battery !== null || raw !== null;
+                    const categoryValues = {};
+                    SNAPSHOT_CATS.forEach(id => { const column = `Zone ${profileCategoryLabel(id)}`; if (idx(column) >= 0) categoryValues[id] = toNumber(row[idx(column)]); });
+                    // Read the legacy electronics column names when importing v35 snapshots.
+                    if (!Object.keys(categoryValues).length) {
+                        if (idx('Zone Packing') >= 0) categoryValues.packing = toNumber(row[idx('Zone Packing')]);
+                        if (idx('Zone Battery') >= 0) categoryValues.battery = toNumber(row[idx('Zone Battery')]);
+                        if (idx('Zone Raw Material') >= 0) categoryValues['raw-material'] = toNumber(row[idx('Zone Raw Material')]);
+                    }
+                    const hasCats = Object.keys(categoryValues).length > 0;
                     snap.zones[zone] = {
                         masterBins: 0,
                         bins: 0,
@@ -3789,16 +3809,8 @@
                         ok: 0,
                         utilizationPct: toNumber(row[idx('Zone Utilization %')]),
                         contaminationPct: 0,
-                        catPallets: hasCats ? {
-                            PACKING: packing || 0,
-                            BATTERY: battery || 0,
-                            'RAW MATERIAL': raw || 0
-                        } : undefined,
-                        byCategory: hasCats ? {
-                            PACKING: { pallets: packing || 0, bins: 0, empty: 0 },
-                            BATTERY: { pallets: battery || 0, bins: 0, empty: 0 },
-                            'RAW MATERIAL': { pallets: raw || 0, bins: 0, empty: 0 }
-                        } : undefined
+                        catPallets: hasCats ? categoryValues : undefined,
+                        byCategory: hasCats ? Object.fromEntries(Object.entries(categoryValues).map(([id, pallets]) => [id, { pallets, bins: 0, empty: 0 }])) : undefined
                     };
                 }
             });
@@ -4118,7 +4130,7 @@
             return `<div class="mt-3 bg-white border border-slate-200 rounded-xl overflow-hidden">
                 <div class="flex items-center justify-between gap-3 px-3 py-2 bg-slate-50 border-b border-slate-200">
                     <span class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Zone + category comparison vs selected snapshot</span>
-                    <span class="text-[9px] font-bold text-slate-400">${snapshotHasCategoryBase(snapshot) ? 'Current pallets + delta' : 'Save a new snapshot to capture PACKING / BATTERY / RAW MATERIAL'}</span>
+                    <span class="text-[9px] font-bold text-slate-400">${snapshotHasCategoryBase(snapshot) ? 'Current pallets + delta' : `Save a new snapshot to capture ${SNAPSHOT_CATS.map(id => profileCategoryLabel(id)).join(' / ')}`}</span>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-xs">
@@ -4145,7 +4157,8 @@
                 actions.push(actionCard({tone:'amber',title:'Mixed HU blocked',metric:String(plan.mixedBlockedCount),description:`${plan.mixedBlockedCount} mixed-category HU(s) are blocked from auto-putaway and need a manual rule or review.`,button:'Review mixed HUs',onclick:"openPutawaySuggestionsModal()"}));
             }
             if ((plan.fallbackCount || 0) > 0) {
-                actions.push(actionCard({tone:'amber',title:'Fallback to O3',metric:String(plan.fallbackCount),description:`${plan.fallbackCount} HU(s) matched no specific rule and were routed to the O3 fallback.`,button:'Review fallback HUs',onclick:"openPutawaySuggestionsModal()"}));
+                const fallbackName = getFallbackPutawayRule() ? 'profile fallback' : 'manual review';
+                actions.push(actionCard({tone:'amber',title: getFallbackPutawayRule() ? 'Profile fallback' : 'No putaway rule',metric:String(plan.fallbackCount || plan.noRuleCount || 0),description:`${plan.fallbackCount || plan.noRuleCount || 0} HU(s) matched no specific rule and require ${fallbackName}.`,button:'Review fallback HUs',onclick:"openPutawaySuggestionsModal()"}));
             }
             const overCats = [];
             Object.entries(plan.zones || {}).forEach(([zoneName, z]) => {
@@ -4174,7 +4187,7 @@
             if (misplaced.length) {
                 actions.push(actionCard({tone:'amber',title:'Misplaced material',metric:String(misplaced.length),description:`${misplaced.length} detail row(s) sit in a bin whose designation does not match the item category.`,button:'Export misplaced CSV',onclick:"exportMisplacedCSV()"}));
             }
-            if(!actions.length) actions.push(actionCard({tone:'emerald',title:'No exception',metric:'OK',description:'No no-slot HU, mixed block, O3 fallback, category overload, contamination, or misplaced material.',button:'Show all bins',onclick:"applyKpiFilter('all')"}));
+            if(!actions.length) actions.push(actionCard({tone:'emerald',title:'No exception',metric:'OK',description:'No no-slot HU, mixed block, profile fallback, category overload, contamination, or misplaced material.',button:'Show all bins',onclick:"applyKpiFilter('all')"}));
             countEl.textContent=`${actions.length} exception${actions.length===1?'':'s'}`;
             const cmp = renderZoneSnapshotComparison(getSelectedComparisonSnapshot());
             list.innerHTML = actions.join('') + (cmp || '');
@@ -4242,9 +4255,10 @@
         }
 
         function getCatStyle(category) {
-            if (category === 'RAW MATERIAL') return { bg: 'bg-slate-400 text-slate-900', border: 'border-slate-400' };
-            if (category === 'BATTERY') return { bg: 'bg-orange-500 text-slate-900', border: 'border-orange-500' };
-            if (category === 'PACKING') return { bg: 'bg-sky-500 text-slate-900', border: 'border-sky-500' };
+            const resolved = resolveCategory(category); const tone = resolved && resolved.style && resolved.style.tone;
+            if (tone === 'slate') return { bg: 'bg-slate-400 text-slate-900', border: 'border-slate-400' };
+            if (tone === 'orange') return { bg: 'bg-orange-500 text-slate-900', border: 'border-orange-500' };
+            if (tone === 'sky') return { bg: 'bg-sky-500 text-slate-900', border: 'border-sky-500' };
             return { bg: 'bg-slate-300 text-slate-900', border: 'border-slate-300' };
         }
 
@@ -4450,6 +4464,8 @@
         }
 
         function findMatchingPutawayRule(items, settings) {
+            if (window.WarehouseApp && typeof window.WarehouseApp.findMatchingPutawayRule === 'function') return window.WarehouseApp.findMatchingPutawayRule(items, settings, window.WarehouseProfile);
+            /* legacy fallback kept only for a profile-loading race */
             const categorySet = getHUCategorySet(items);
             const sortedRules = (settings.rules || [])
                 .filter(rule => rule.enabled)
@@ -4493,6 +4509,7 @@
         }
 
         function binMatchesPutawayRule(binRow, rule) {
+            if (window.WarehouseApp && typeof window.WarehouseApp.binMatchesPutawayRule === 'function') return window.WarehouseApp.binMatchesPutawayRule(binRow, rule);
             const binName = String(binRow && binRow.bin || '');
             if (!rule.targetPatterns.length || !matchesAnyPattern(binName, rule.targetPatterns)) return false;
             if (rule.excludePatterns.length && matchesAnyPattern(binName, rule.excludePatterns)) return false;
@@ -4508,16 +4525,9 @@
         }
 
         function getFallbackPutawayRule() {
-            return {
-                id: 'fallback-o3',
-                enabled: true,
-                priority: Number.MAX_SAFE_INTEGER,
-                highValue: false,
-                name: 'Fallback \u2192 Zone O3',
-                pnPrefixes: [], descriptionKeywords: [], excludeDescriptionKeywords: [], categories: [],
-                targetPatterns: ['O3*'], excludePatterns: [],
-                isFallback: true
-            };
+            const configured = window.WarehouseProfile && window.WarehouseProfile.profile && window.WarehouseProfile.profile.putaway && window.WarehouseProfile.profile.putaway.fallbackDestination;
+            if (!configured || !Array.isArray(configured.include) || !configured.include.length) return null;
+            return { id: 'fallback-profile', enabled: true, priority: Number.MAX_SAFE_INTEGER, highValue: false, name: 'Fallback', pnPrefixes: [], descriptionKeywords: [], excludeDescriptionKeywords: [], categories: [], targetPatterns: configured.include.slice(), excludePatterns: Array.isArray(configured.exclude) ? configured.exclude.slice() : [], isFallback: true };
         }
 
         function buildZonePutawayPlan() {
@@ -4533,11 +4543,12 @@
 
             // --- Per bin-category (per putaway rule) capacity + demand, so one zone can show
             //     a separate demand pressure per category (e.g. Battery vs Raw Material). ---
+            const configuredFallback = getFallbackPutawayRule();
             const rulesByPriority = (settings.rules || [])
                 .filter(rule => rule.enabled)
                 .slice()
                 .sort((a, b) => Number(a.priority) - Number(b.priority) || String(a.name).localeCompare(String(b.name)))
-                .concat([getFallbackPutawayRule()]);
+                .concat(configuredFallback ? [configuredFallback] : []);
 
             const ensureZoneCategory = (zoneName, label) => {
                 const key = mainMaterialCategory(label);
@@ -4546,7 +4557,7 @@
                 if (!zones[zoneName].byCategory[key]) {
                     zones[zoneName].byCategory[key] = {
                         key,
-                        label: key,
+                        label: profileCategoryDisplay(key),
                         bins: 0, pallets: 0, empty: 0, demand: 0, assigned: 0
                     };
                 }
@@ -4621,10 +4632,16 @@
                     return;
                 }
 
-                // No specific rule matched -> route to the fallback zone (O3*).
+                // No specific rule matched -> use the profile fallback, or keep for manual review.
                 const usedFallback = !entry.rule;
                 const rule = entry.rule || getFallbackPutawayRule();
-                if (usedFallback) fallbackCount += 1;
+                if (usedFallback && rule) fallbackCount += 1;
+
+                if (!rule) {
+                    noRuleCount += 1;
+                    suggestions.push({ hu: entry.hu, items: entry.items, partNumbers, categories, ruleId: '', ruleName: '', highValue: false, suggestedBin: '', zone: '', status: 'no-rule', statusLabel: 'Manual review', isFallback: false, reason: 'No enabled putaway rule or profile fallback matched this handling unit.' });
+                    return;
+                }
 
                 const targetZone = zoneFromPattern(rule.targetPatterns[0]);
                 if (!zones[targetZone]) zones[targetZone] = newZoneEntry();
@@ -4645,7 +4662,7 @@
                         ruleId: rule.id, ruleName: rule.name, highValue: rule.highValue,
                         suggestedBin: '', zone: targetZone, status: 'noslot', statusLabel: 'No empty bin', isFallback: usedFallback,
                         reason: usedFallback
-                            ? `No specific rule matched; routed to fallback Zone O3, but no empty bin matched ${rule.targetPatterns.join(', ')}.`
+                            ? `No specific rule matched; routed to the profile fallback, but no empty bin matched ${rule.targetPatterns.join(', ')}.`
                             : `Matched ${rule.name} (${entry.evidence}), but no empty bin matched ${rule.targetPatterns.join(', ')}${rule.excludePatterns.length ? ` excluding ${rule.excludePatterns.join(', ')}` : ''}.`
                     });
                     return;
@@ -4663,7 +4680,7 @@
                     ruleId: rule.id, ruleName: rule.name, highValue: rule.highValue,
                     suggestedBin: candidate.bin, zone, status: 'assigned', statusLabel: usedFallback ? 'Assigned (fallback)' : 'Assigned', isFallback: usedFallback,
                     reason: usedFallback
-                        ? `No specific rule matched; routed to fallback Zone O3 (bin ${candidate.bin}).`
+                        ? `No specific rule matched; routed to the profile fallback (bin ${candidate.bin}).`
                         : `Matched ${rule.name} by ${entry.evidence}.`
                 });
             });
@@ -4864,7 +4881,7 @@
             summary.innerHTML = `
                 <div class="putaway-summary-card"><span class="putaway-summary-label">GR HUs</span><span class="putaway-summary-value">${plan.total.toLocaleString()}</span></div>
                 <div class="putaway-summary-card"><span class="putaway-summary-label">Assigned</span><span class="putaway-summary-value text-emerald-600">${plan.assignedCount.toLocaleString()}</span></div>
-                <div class="putaway-summary-card"><span class="putaway-summary-label">Fallback \u2192 O3</span><span class="putaway-summary-value text-blue-600">${(plan.fallbackCount || 0).toLocaleString()}</span></div>
+                <div class="putaway-summary-card"><span class="putaway-summary-label">${getFallbackPutawayRule() ? 'Profile fallback' : 'No rule / review'}</span><span class="putaway-summary-value text-blue-600">${(getFallbackPutawayRule() ? plan.fallbackCount : plan.noRuleCount || 0).toLocaleString()}</span></div>
                 <div class="putaway-summary-card"><span class="putaway-summary-label">No empty match</span><span class="putaway-summary-value text-orange-600">${plan.noSlotCount.toLocaleString()}</span></div>
                 <div class="putaway-summary-card"><span class="putaway-summary-label">Mixed blocked</span><span class="putaway-summary-value text-rose-600">${plan.mixedBlockedCount.toLocaleString()}</span></div>
             `;
@@ -5259,7 +5276,7 @@
                         return { label: c.label, bins, pallets, empty, dem, proj, pct, noSlot, over };
                     })
                     .sort((a, b) => {
-                        const order = { 'PACKING': 0, 'BATTERY': 1, 'RAW MATERIAL': 2 };
+                        const order = Object.fromEntries(SNAPSHOT_CATS.map((id, index) => [profileCategoryLabel(id), index]));
                         const oa = order[a.label] === undefined ? 99 : order[a.label];
                         const ob = order[b.label] === undefined ? 99 : order[b.label];
                         return oa - ob || String(a.label).localeCompare(String(b.label));
@@ -5871,6 +5888,7 @@
         }
 
         function collectZoneCategoryStats() {
+            if (window.WarehouseApp && typeof window.WarehouseApp.aggregateZoneCategories === 'function') return window.WarehouseApp.aggregateZoneCategories(currentStats.data || [], window.WarehouseProfile);
             const out = {};
             (currentStats.data || []).forEach(row => {
                 const zone = String(row.zone || 'Unknown');
@@ -6282,7 +6300,7 @@
             const items = [];
             if ((plan.noSlotCount || 0) > 0) items.push(`<p class="lab-model">${plan.noSlotCount} HU no slot</p><p class="lab-start">Stay in GR-ZONE</p>`);
             if ((plan.mixedBlockedCount || 0) > 0) items.push(`<p class="lab-model">${plan.mixedBlockedCount} mixed HU blocked</p><p class="lab-start">Need manual review</p>`);
-            if ((plan.fallbackCount || 0) > 0) items.push(`<p class="lab-model">${plan.fallbackCount} fallback O3</p><p class="lab-start">No specific rule matched</p>`);
+            if ((plan.fallbackCount || 0) > 0) items.push(`<p class="lab-model">${plan.fallbackCount} profile fallback</p><p class="lab-start">No specific rule matched</p>`);
             Object.entries(plan.zones || {}).forEach(([zoneName, z]) => {
                 Object.values(z.byCategory || {}).forEach(c => {
                     const bins = Number(c.bins) || 0;
@@ -6344,11 +6362,18 @@
 
         function configureWarehouseProfile(profileApi) {
             if (!profileApi) throw new Error('Warehouse profile did not load.');
-            const specialLabel = profileApi.specialLocationLabel('gr-zone');
+            const primarySpecial = typeof profileApi.getPrimarySpecialLocation === 'function' ? profileApi.getPrimarySpecialLocation() : null;
+            const specialLabel = (primarySpecial && primarySpecial.label) || profileApi.specialLocationLabel('gr-zone');
             if (specialLabel) STORAGE_BIN_GR = specialLabel;
+            document.querySelectorAll('[data-special-location-label]').forEach(element => { element.textContent = specialLabel || 'Special location'; });
+            const specialSection = qs('specialLocationSection'); if (specialSection) specialSection.hidden = !primarySpecial;
             const snapshotIds = typeof profileApi.getSnapshotCategories === 'function' ? profileApi.getSnapshotCategories().map(item => item.id) : [];
             if (!snapshotIds.length) throw new Error('Active warehouse profile must define at least one snapshot category.');
             SNAPSHOT_CATS = snapshotIds;
+            document.querySelectorAll('[data-profile-classifier]').forEach(element => {
+                const classifierId = element.getAttribute('data-profile-classifier');
+                element.hidden = !(typeof profileApi.classifier === 'function' && profileApi.classifier(classifierId));
+            });
             if (window.WarehouseApp && typeof window.WarehouseApp.applyModuleVisibility === 'function') {
                 window.WarehouseApp.applyModuleVisibility(profileApi);
             }
@@ -6378,7 +6403,9 @@
         }
 
         window.onload = function() {
-            const profileReady = window.WarehouseProfileReady || Promise.reject(new Error('Warehouse profile loader is unavailable.'));
+            const profileReady = (window.TauriBootReady || Promise.resolve()).then(function() {
+                return window.WarehouseProfileReload ? window.WarehouseProfileReload() : (window.WarehouseProfileReady || Promise.reject(new Error('Warehouse profile loader is unavailable.')));
+            });
             profileReady.then(configureWarehouseProfile).then(function() {
             if (window.WarehouseOnboarding && window.MachineConfig && !window.MachineConfig.get('onboardingCompleted', false) && window.WarehouseProfile && window.WarehouseProfile.profile && window.WarehouseProfile.profile.id === 'generic') {
                 window.WarehouseOnboarding.startWizard();

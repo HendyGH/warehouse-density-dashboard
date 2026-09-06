@@ -30,6 +30,7 @@
   "putaway": {
     "enabled": true,
     "blockMixedHandlingUnits": true,
+    "fallbackDestination": { "include": ["O3*"], "exclude": [] },
     "rules": [
       { "id": "phone", "priority": 10, "name": "Phone", "highValue": true, "when": { "classifier": "phone" }, "destination": { "include": ["O5-A*"], "exclude": ["O5-A8*"] } },
       { "id": "pcba", "priority": 20, "name": "PCBA", "highValue": true, "when": { "classifier": "pcba" }, "destination": { "include": ["O5-A8*"], "exclude": [] } },

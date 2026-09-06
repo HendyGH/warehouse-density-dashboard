@@ -27,16 +27,71 @@
         (profile.classifiers || []).forEach((classifier, index) => { if (!classifier || !text(classifier.id)) errors.push(`classifiers[${index}].id is required`); else if (classifierIds.has(key(classifier.id))) errors.push(`duplicate classifier id: ${classifier.id}`); else classifierIds.add(key(classifier.id)); validateMatch(classifier && classifier.match, `classifiers[${index}].match`, errors); if (classifier && !Array.isArray(classifier.tags)) errors.push(`classifiers[${index}].tags must be an array`); });
         if (!Array.isArray(profile.specialLocations)) errors.push('specialLocations must be an array');
         const locationIds = new Set();
-        (profile.specialLocations || []).forEach((location, index) => { if (!location || !text(location.id)) errors.push(`specialLocations[${index}].id is required`); else if (locationIds.has(key(location.id))) errors.push(`duplicate special location id: ${location.id}`); else locationIds.add(key(location.id)); if (!location || !text(location.label)) errors.push(`specialLocations[${index}].label is required`); if (location && !Array.isArray(location.aliases)) errors.push(`specialLocations[${index}].aliases must be an array`); if (location && location.type != null && !/^[a-z][a-z0-9_-]{0,31}$/i.test(String(location.type))) errors.push(`specialLocations[${index}].type is invalid`); if (location && location.match != null) { const match = location.match, op = match && match.op ? match.op : 'equals', expected = match && (match.value != null ? match.value : match.pattern); if (!match || typeof match !== 'object' || !SUPPORTED_OPERATORS.has(op)) errors.push(`specialLocations[${index}].match.op is unsupported`); if (expected == null || !text(expected)) errors.push(`specialLocations[${index}].match.value is required`); if (op === 'regex' && expected != null) { try { new RegExp(String(expected), match.flags || 'i'); } catch (error) { errors.push(`specialLocations[${index}].match.regex is invalid: ${error.message}`); } } } if (location && location.behavior != null && (typeof location.behavior !== 'object' || Array.isArray(location.behavior))) errors.push(`specialLocations[${index}].behavior must be an object`); });
+        (profile.specialLocations || []).forEach((location, index) => { if (!location || !text(location.id)) errors.push(`specialLocations[${index}].id is required`); else if (locationIds.has(key(location.id))) errors.push(`duplicate special location id: ${location.id}`); else locationIds.add(key(location.id)); if (!location || !text(location.label)) errors.push(`specialLocations[${index}].label is required`); if (location && !Array.isArray(location.aliases)) errors.push(`specialLocations[${index}].aliases must be an array`); if (location && location.tags != null && !Array.isArray(location.tags)) errors.push(`specialLocations[${index}].tags must be an array`); if (location && location.type != null && !/^[a-z][a-z0-9_-]{0,31}$/i.test(String(location.type))) errors.push(`specialLocations[${index}].type is invalid`); if (location && location.match != null) { const match = location.match, op = match && match.op ? match.op : 'equals', expected = match && (match.value != null ? match.value : match.pattern); if (!match || typeof match !== 'object' || !SUPPORTED_OPERATORS.has(op)) errors.push(`specialLocations[${index}].match.op is unsupported`); if (expected == null || !text(expected)) errors.push(`specialLocations[${index}].match.value is required`); if (op === 'regex' && expected != null) { try { new RegExp(String(expected), match.flags || 'i'); } catch (error) { errors.push(`specialLocations[${index}].match.regex is invalid: ${error.message}`); } } } if (location && location.behavior != null) { if (typeof location.behavior !== 'object' || Array.isArray(location.behavior)) errors.push(`specialLocations[${index}].behavior must be an object`); else Object.keys(location.behavior).forEach(name => { if (typeof location.behavior[name] !== 'boolean') errors.push(`specialLocations[${index}].behavior.${name} must be boolean`); }); } });
         validateUniqueNames(profile.specialLocations, 'special location', errors);
         const knownIds = new Set((profile.categories || []).map(category => key(category && category.id)));
         if (profile.snapshotCategories != null) { if (!Array.isArray(profile.snapshotCategories)) errors.push('snapshotCategories must be an array'); else profile.snapshotCategories.forEach(id => { if (!refExists(knownIds, id)) errors.push(`snapshot category is unknown: ${id}`); }); }
         const unknownPolicy = profile.unknownCategoryPolicy || 'preserve';
         if (!['preserve', 'reject', 'map-to-default'].includes(unknownPolicy)) errors.push(`unknownCategoryPolicy is unsupported: ${unknownPolicy}`);
         if (unknownPolicy === 'map-to-default' && !refExists(knownIds, profile.defaultCategory)) errors.push('defaultCategory is required and must reference a category when unknownCategoryPolicy is map-to-default');
-        if (profile.dataMappings != null) { if (typeof profile.dataMappings !== 'object' || Array.isArray(profile.dataMappings)) errors.push('dataMappings must be an object'); else { ['master', 'detail'].forEach(kind => { if (profile.dataMappings[kind] != null && (typeof profile.dataMappings[kind] !== 'object' || Array.isArray(profile.dataMappings[kind]))) errors.push(`dataMappings.${kind} must be an object`); }); const q = profile.dataMappings.categoryQuantityColumns; if (q != null) { if (typeof q !== 'object' || Array.isArray(q)) errors.push('dataMappings.categoryQuantityColumns must be an object'); else Object.keys(q).forEach(id => { if (!refExists(knownIds, id)) errors.push(`dataMappings.categoryQuantityColumns references unknown category: ${id}`); if (!text(q[id]) && !Number.isInteger(q[id])) errors.push(`dataMappings.categoryQuantityColumns.${id} is invalid`); }); } } }
-        const segregation = profile.segregation; if (segregation != null) { if (typeof segregation !== 'object' || Array.isArray(segregation)) errors.push('segregation must be an object'); else { if (segregation.enabled != null && typeof segregation.enabled !== 'boolean') errors.push('segregation.enabled must be boolean'); if (segregation.quantityFields != null && (typeof segregation.quantityFields !== 'object' || Array.isArray(segregation.quantityFields))) errors.push('segregation.quantityFields must be an object'); Object.keys(segregation.quantityFields || {}).forEach(id => { if (!refExists(knownIds, id)) errors.push(`segregation.quantityFields references unknown category: ${id}`); if (!text(segregation.quantityFields[id])) errors.push(`segregation.quantityFields.${id} is required`); }); if (segregation.rules != null && !Array.isArray(segregation.rules)) errors.push('segregation.rules must be an array'); const ids = new Set(); (segregation.rules || []).forEach((rule, i) => { if (!rule || !text(rule.id)) errors.push(`segregation.rules[${i}].id is required`); else if (ids.has(key(rule.id))) errors.push(`duplicate segregation rule id: ${rule.id}`); else ids.add(key(rule.id)); if (rule && rule.binCategory && !refExists(knownIds, rule.binCategory)) errors.push(`segregation.rules[${i}].binCategory is unknown`); (rule && rule.allowedItemCategories || []).forEach(id => { if (!refExists(knownIds, id)) errors.push(`segregation.rules[${i}].allowedItemCategories references unknown category: ${id}`); }); }); } }
-        const putaway = profile.putaway; if (putaway != null) { if (typeof putaway !== 'object' || Array.isArray(putaway)) errors.push('putaway must be an object'); else { if (putaway.enabled != null && typeof putaway.enabled !== 'boolean') errors.push('putaway.enabled must be boolean'); if (putaway.blockMixedHandlingUnits != null && typeof putaway.blockMixedHandlingUnits !== 'boolean') errors.push('putaway.blockMixedHandlingUnits must be boolean'); const ids = new Set(); (putaway.rules || []).forEach((rule, i) => { if (!rule || !text(rule.id)) errors.push(`putaway.rules[${i}].id is required`); else if (ids.has(key(rule.id))) errors.push(`duplicate putaway rule id: ${rule.id}`); else ids.add(key(rule.id)); if (rule && rule.when && rule.when.category && !refExists(knownIds, rule.when.category)) errors.push(`putaway.rules[${i}].when.category is unknown`); if (rule && rule.when && rule.when.classifier && !refExists(classifierIds, rule.when.classifier)) errors.push(`putaway.rules[${i}].when.classifier is unknown`); }); } }
+        if (profile.dataMappings != null) {
+            if (typeof profile.dataMappings !== 'object' || Array.isArray(profile.dataMappings)) errors.push('dataMappings must be an object');
+            else {
+                ['master', 'detail'].forEach(kind => {
+                    const mapping = profile.dataMappings[kind];
+                    if (mapping != null && (typeof mapping !== 'object' || Array.isArray(mapping))) errors.push(`dataMappings.${kind} must be an object`);
+                    if (mapping && typeof mapping === 'object' && !Array.isArray(mapping)) Object.keys(mapping).forEach(field => {
+                        const value = mapping[field];
+                        if (!(Number.isInteger(value) && value >= 0) && !(typeof value === 'string' && text(value))) errors.push(`dataMappings.${kind}.${field} must be a non-empty header or non-negative column index`);
+                    });
+                });
+                const q = profile.dataMappings.categoryQuantityColumns;
+                if (q != null) {
+                    if (typeof q !== 'object' || Array.isArray(q)) errors.push('dataMappings.categoryQuantityColumns must be an object');
+                    else Object.keys(q).forEach(id => { if (!refExists(knownIds, id)) errors.push(`dataMappings.categoryQuantityColumns references unknown category: ${id}`); const value = q[id]; if (!(Number.isInteger(value) && value >= 0) && !(typeof value === 'string' && text(value))) errors.push(`dataMappings.categoryQuantityColumns.${id} must be a non-empty header or non-negative column index`); });
+                }
+            }
+        }
+        const segregation = profile.segregation;
+        if (segregation != null) {
+            if (typeof segregation !== 'object' || Array.isArray(segregation)) errors.push('segregation must be an object');
+            else {
+                if (segregation.enabled != null && typeof segregation.enabled !== 'boolean') errors.push('segregation.enabled must be boolean');
+                if (segregation.quantityFields != null && (typeof segregation.quantityFields !== 'object' || Array.isArray(segregation.quantityFields))) errors.push('segregation.quantityFields must be an object');
+                Object.keys(segregation.quantityFields || {}).forEach(id => { if (!refExists(knownIds, id)) errors.push(`segregation.quantityFields references unknown category: ${id}`); if (typeof segregation.quantityFields[id] !== 'string' || !text(segregation.quantityFields[id])) errors.push(`segregation.quantityFields.${id} is required`); });
+                if (segregation.rules != null && !Array.isArray(segregation.rules)) errors.push('segregation.rules must be an array');
+                const ids = new Set();
+                (Array.isArray(segregation.rules) ? segregation.rules : []).forEach((rule, i) => {
+                    if (!rule || typeof rule !== 'object' || Array.isArray(rule)) { errors.push(`segregation.rules[${i}] must be an object`); return; }
+                    if (!text(rule.id)) errors.push(`segregation.rules[${i}].id is required`); else if (ids.has(key(rule.id))) errors.push(`duplicate segregation rule id: ${rule.id}`); else ids.add(key(rule.id));
+                    if (rule.binCategory && !refExists(knownIds, rule.binCategory)) errors.push(`segregation.rules[${i}].binCategory is unknown`);
+                    if (!Array.isArray(rule.allowedItemCategories)) errors.push(`segregation.rules[${i}].allowedItemCategories must be an array`); else rule.allowedItemCategories.forEach(id => { if (!refExists(knownIds, id)) errors.push(`segregation.rules[${i}].allowedItemCategories references unknown category: ${id}`); });
+                    if (rule.severity != null && !['info', 'warning', 'error'].includes(rule.severity)) errors.push(`segregation.rules[${i}].severity is unsupported`);
+                });
+            }
+        }
+        const putaway = profile.putaway;
+        if (putaway != null) {
+            if (typeof putaway !== 'object' || Array.isArray(putaway)) errors.push('putaway must be an object');
+            else {
+                if (putaway.enabled != null && typeof putaway.enabled !== 'boolean') errors.push('putaway.enabled must be boolean');
+                if (putaway.blockMixedHandlingUnits != null && typeof putaway.blockMixedHandlingUnits !== 'boolean') errors.push('putaway.blockMixedHandlingUnits must be boolean');
+                if (putaway.rules != null && !Array.isArray(putaway.rules)) errors.push('putaway.rules must be an array');
+                const ids = new Set();
+                (Array.isArray(putaway.rules) ? putaway.rules : []).forEach((rule, i) => {
+                    if (!rule || typeof rule !== 'object' || Array.isArray(rule)) { errors.push(`putaway.rules[${i}] must be an object`); return; }
+                    if (!text(rule.id)) errors.push(`putaway.rules[${i}].id is required`); else if (ids.has(key(rule.id))) errors.push(`duplicate putaway rule id: ${rule.id}`); else ids.add(key(rule.id));
+                    if (rule.priority != null && (!Number.isFinite(Number(rule.priority)))) errors.push(`putaway.rules[${i}].priority must be a number`);
+                    if (rule.when != null && (typeof rule.when !== 'object' || Array.isArray(rule.when))) errors.push(`putaway.rules[${i}].when must be an object`);
+                    if (rule.when && rule.when.category && !refExists(knownIds, rule.when.category)) errors.push(`putaway.rules[${i}].when.category is unknown`);
+                    if (rule.when && rule.when.classifier && !refExists(classifierIds, rule.when.classifier)) errors.push(`putaway.rules[${i}].when.classifier is unknown`);
+                    const destination = rule.destination;
+                    if (destination != null && (typeof destination !== 'object' || Array.isArray(destination))) errors.push(`putaway.rules[${i}].destination must be an object`);
+                    if (destination) { if (!Array.isArray(destination.include)) errors.push(`putaway.rules[${i}].destination.include must be an array`); if (!Array.isArray(destination.exclude)) errors.push(`putaway.rules[${i}].destination.exclude must be an array`); }
+                });
+                if (putaway.fallbackDestination != null) { const fallback = putaway.fallbackDestination; if (typeof fallback !== 'object' || Array.isArray(fallback)) errors.push('putaway.fallbackDestination must be an object'); else { if (!Array.isArray(fallback.include)) errors.push('putaway.fallbackDestination.include must be an array'); if (!Array.isArray(fallback.exclude)) errors.push('putaway.fallbackDestination.exclude must be an array'); } }
+            }
+        }
         if (profile.modules != null) { if (typeof profile.modules !== 'object' || Array.isArray(profile.modules)) errors.push('modules must be an object'); else Object.keys(profile.modules).forEach(id => { if (!MODULE_IDS.has(id)) errors.push(`modules.${id} is unsupported`); if (typeof profile.modules[id] !== 'boolean') errors.push(`modules.${id} must be boolean`); }); }
         if (profile.zoneDetection != null) { const zone = profile.zoneDetection; if (!zone || !['delimiter', 'regex'].includes(zone.mode)) errors.push('zoneDetection.mode is unsupported'); if (zone && zone.mode === 'delimiter' && !text(zone.delimiter)) errors.push('zoneDetection.delimiter is required'); if (zone && zone.mode === 'regex') { if (!text(zone.pattern)) errors.push('zoneDetection.pattern is required'); else { try { new RegExp(zone.pattern, zone.flags || 'i'); } catch (error) { errors.push(`zoneDetection.regex is invalid: ${error.message}`); } } } }
         if (errors.length) fail('invalid schema', errors); return profile;
@@ -53,6 +108,8 @@
         const path = global.MachineConfig && typeof global.MachineConfig.get === 'function' ? global.MachineConfig.get('activeProfilePath', null) : null;
         return path || global.WAREHOUSE_PROFILE_OBJECT || global.WAREHOUSE_PROFILE_PATH || DEFAULT_PROFILE_PATH;
     });
-    global.WarehouseProfileReady = configuredProfile().then(load).then(profileApi => { global.WarehouseProfile = profileApi; return profileApi; }).catch(error => { showLoadError(error); throw error; });
+    const reloadConfiguredProfile = () => configuredProfile().then(load).then(profileApi => { global.WarehouseProfile = profileApi; return profileApi; });
+    global.WarehouseProfileReload = reloadConfiguredProfile;
+    global.WarehouseProfileReady = reloadConfiguredProfile().catch(error => { showLoadError(error); throw error; });
 })(window);
 
