@@ -19,9 +19,15 @@ vm.runInNewContext(fs.readFileSync('src/app/putaway-engine.js', 'utf8'), context
   const mixed = engine.planPutaway({ profile: api, settings, bins: [{ bin: 'O1-A01', palletCount: 0 }], itemsByHU: { MIXED: [{ pn: '1', desc: 'battery', category: 'BATTERY' }, { pn: '2', desc: 'packing', category: 'PACKING' }] } });
   assert.strictEqual(mixed.suggestions[0].status, 'mixed');
   const priority = engine.findMatchingPutawayRule([{ pn: '90123', desc: 'phone', category: 'RAW MATERIAL' }], settings, api); assert.strictEqual(priority.rule.id, 'phone');
+  const classifierOnly = engine.findMatchingPutawayRule([{ pn: '90123', desc: 'module', category: 'RAW MATERIAL' }], { blockMixedHandlingUnits: true, rules: [{ id: 'classifier-only', priority: 1, name: 'Classifier only', classifier: 'phone', highValue: true, categories: [], pnPrefixes: [], descriptionKeywords: [], excludeDescriptionKeywords: [], targetPatterns: ['O5-A*'], excludePatterns: [] }] }, api);
+  assert.strictEqual(classifierOnly.rule.id, 'classifier-only');
   const genericProfile = { profile: { putaway: { enabled: false, rules: [] } }, categoryId: value => String(value || '').toLowerCase() };
   const noRule = engine.planPutaway({ profile: genericProfile, settings: { blockMixedHandlingUnits: false, rules: [] }, bins: [{ bin: 'O3-A01', palletCount: 0 }], itemsByHU: { HU: [{ pn: '1', category: 'ambient', desc: 'ambient' }] } });
   assert.strictEqual(noRule.suggestions[0].status, 'no-rule');
+  const dashboard = fs.readFileSync('src/index.html', 'utf8');
+  assert.match(dashboard, /engine\.planPutaway\(/);
+  assert.match(dashboard, /Canonical putaway engine is unavailable/);
+  assert.doesNotMatch(dashboard, /function wildcardToRegExp/);
   console.log('putaway production tests passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });
 
