@@ -12,10 +12,15 @@
     <script src="app/category-engine.js"></script>
     <script src="app/profile-manager.js"></script>
     <script src="app/onboarding.js"></script>
+    <script src="app/setup.js"></script>
+    <script src="app/import-assistant.js"></script>
+    <script src="app/about.js"></script>
+    <link rel="stylesheet" href="app/setup.css">
     <script src="tauri_boot.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Warehouse Dashboard v2.0.0</title>
+    <title>Warehouse Dashboard</title>
+    <link rel="icon" type="image/png" href="assets/warehouse-icon.png">
 <style id="offline-utility-css">
 *{box-sizing:border-box}html{line-height:1.5;-webkit-text-size-adjust:100%}body{margin:0}button,input,select,textarea{font:inherit;color:inherit}button{background:none}table{border-collapse:collapse}svg{display:block}
 .-translate-y-1\/2{transform:translateY(-50%)}
@@ -1631,6 +1636,8 @@
         <button type="button" class="app-view-tab" data-view="dashboard" onclick="setAppView('dashboard')">Dashboard</button>
         <button type="button" class="app-view-tab" data-view="lab" onclick="setAppView('lab')">Lab</button>
         <button type="button" class="app-view-tab" onclick="openProfileDiagnostics()">Profile</button>
+        <button type="button" class="app-view-tab" id="importAssistantButton" onclick="WarehouseImportAssistant.open()">Import assistant</button>
+        <button type="button" class="app-view-tab" onclick="WarehouseAbout.open()">About</button>
     </nav>
     <div class="w-full mx-auto pb-12">
         <div id="viewData" class="app-view">
@@ -1696,7 +1703,7 @@
                         <h1 class="text-3xl font-black text-slate-800 tracking-tight">Warehouse Dashboard</h1>
                         <p class="text-slate-500 mt-1 font-medium">Storage utilization, contamination risk, and prioritized operational actions.</p>
                         <p id="generatedStamp" class="text-xs font-bold text-slate-500 mt-1">Generated — not yet</p>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Version v2 · Profile-driven putaway rules · Demand pressure</p>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Warehouse density · Inventory visibility · Operational insights</p>
                     </div>
                     <section class="npi-schedule" aria-label="NPI Schedule">
                         <h2 class="npi-schedule-title">NPI Schedule</h2>
@@ -2443,7 +2450,7 @@
 
         Chart.register(ChartDataLabels);
 
-        const APP_VERSION = 'v2.0.0';
+        const APP_VERSION = 'v2.1.0';
         let STORAGE_BIN_GR = 'GR-ZONE';
         const INPUT_AUTOSAVE_KEY = 'warehouseInputAutoSave_v35';
         const TREND_STORAGE_KEY = 'warehouseTrendSnapshots_v35';
@@ -3182,13 +3189,14 @@
                     const categoryId = categoryResolution.id || profileCategoryId(category);
                     if (!categoryResolution.known) warnings.unknownCategories.push({ value: category, policy: categoryResolution.mapped ? 'map-to-default' : 'preserve' });
                     let rawQty = (mapped ? mapped.quantity : cols[3]).trim().replace(/,/g, '');
-                    let qty = parseFloat(rawQty) || 0;
+                    const parsedQty = Number(rawQty);
+                    let qty = Number.isFinite(parsedQty) ? parsedQty : 0;
                     let batch = (mapped ? mapped.batch : cols[4]).trim();
                     let bin = (mapped ? mapped.bin : cols[5]).trim();
                     let hu = (mapped ? mapped.handlingUnit : (cols.length > 6 ? cols[6] : '')).trim();
                     if (!bin) { warnings.skippedDetailRows++; continue; }
 
-                    if (rawQty && !Number.isFinite(qty)) warnings.invalidQuantities++;
+                    if (rawQty && !Number.isFinite(parsedQty)) warnings.invalidQuantities++;
                     const detailItem = { pn, desc, category, categoryId, qty, batch, bin, hu };
                     parsedDetail.push(detailItem);
                     warnings.parsedDetailRows++;
@@ -3239,8 +3247,10 @@
                     if (isProfileSpecialLocation(bin)) continue;
 
                     let palletRaw = (mapped ? mapped.palletCount : (cols.length >= 4 ? cols[3] : '')).trim();
-                    let palletCount = parseInt(palletRaw, 10) || 0;
-                    if (palletRaw && isNaN(parseInt(palletRaw))) warnings.invalidMasterPalletRows++;
+                    const parsedPallets = Number(palletRaw.replace(/,/g, ''));
+                    const validPallets = Number.isSafeInteger(parsedPallets) && parsedPallets >= 0;
+                    let palletCount = validPallets ? parsedPallets : 0;
+                    if (palletRaw && !validPallets) warnings.invalidMasterPalletRows++;
 
                     let cat = (mapped ? mapped.category : (cols.length >= 5 ? cols[4] : '')).trim();
                     let binCatRaw = (mapped ? mapped.binCategory : (cols.length >= 6 ? cols[5] : '')).trim();
@@ -3254,7 +3264,7 @@
                     const categoryQuantities = {};
                     profileCategoryIds().forEach((id, index) => {
                         const rawValue = mapped ? mappedQuantities[id] : (cols.length >= 7 + index ? cols[6 + index] : '');
-                        const parsed = rawValue === '' || rawValue == null ? 0 : parseInt(rawValue, 10);
+                        const parsed = rawValue === '' || rawValue == null ? 0 : Number(String(rawValue).replace(/,/g, ''));
                         if (rawValue !== '' && !Number.isFinite(parsed)) warnings.invalidQuantities++;
                         categoryQuantities[id] = Number.isFinite(parsed) ? parsed : 0;
                     });
@@ -6316,7 +6326,7 @@
                 return window.WarehouseProfileReload ? window.WarehouseProfileReload() : (window.WarehouseProfileReady || Promise.reject(new Error('Warehouse profile loader is unavailable.')));
             });
             profileReady.then(configureWarehouseProfile).then(function() {
-            if (window.WarehouseOnboarding && window.MachineConfig && (window.MachineConfig.get('profileSelectionRequired', false) || !window.MachineConfig.get('onboardingCompleted', false)) && window.WarehouseProfile && window.WarehouseProfile.profile && window.WarehouseProfile.profile.id === 'generic') {
+            if ((!window.WarehouseAccess || window.WarehouseAccess.canEdit) && window.WarehouseOnboarding && window.MachineConfig && (window.MachineConfig.get('profileSelectionRequired', false) || !window.MachineConfig.get('onboardingCompleted', false)) && window.WarehouseProfile && window.WarehouseProfile.profile && window.WarehouseProfile.profile.id === 'generic') {
                 window.WarehouseOnboarding.startWizard();
             }
             return window.UserPrefsReady || (window.UserPrefs && window.UserPrefs.load ? window.UserPrefs.load() : Promise.resolve());
@@ -6361,7 +6371,7 @@
         <span id="zoomIndicatorPct">100%</span>
         <button type="button" onclick="zoomReset()" style="border:none;background:#eff6ff;color:#2563eb;font:700 11px sans-serif;padding:4px 10px;border-radius:8px;cursor:pointer">Reset</button>
     </div>
-    <div id="appCredit" style="position:fixed;left:12px;bottom:12px;z-index:2147481000;font:600 11px sans-serif;color:#94a3b8;background:rgba(255,255,255,.75);padding:4px 10px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.08);pointer-events:none;user-select:none">© Hendy 2026 · v2.0.0</div>
+    <div id="appCredit" style="position:fixed;left:12px;bottom:12px;z-index:2147481000;font:600 11px sans-serif;color:#94a3b8;background:rgba(255,255,255,.75);padding:4px 10px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.08);pointer-events:none;user-select:none">© Hendy 2026</div>
 </body>
 </html>
 

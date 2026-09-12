@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use tauri_plugin_dialog::DialogExt;
+mod setup;
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 struct Config {
@@ -66,6 +68,45 @@ fn get_config() -> Config {
 }
 
 #[tauri::command]
+fn default_workspace_path() -> Result<String, String> {
+    let base = dirs::data_local_dir().ok_or("Local application folder is unavailable")?;
+    Ok(base
+        .join("WarehouseDashboard")
+        .join("warehouse")
+        .to_string_lossy()
+        .into_owned())
+}
+
+#[tauri::command]
+async fn choose_workspace_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .set_title("Choose warehouse data folder")
+            .blocking_pick_folder()
+            .map(|p| {
+                p.into_path()
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .map_err(|e| e.to_string())
+            })
+            .transpose()
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn configure_workspace(path: String, intent: String, account_mode: String) -> Result<(), String> {
+    setup::configure(&PathBuf::from(&path), &intent, &account_mode)?;
+    set_db_folder(path)
+}
+
+#[tauri::command]
+fn warehouse_access_mode() -> Result<String, String> {
+    setup::mode(&db_dir()?)
+}
+
+#[tauri::command]
 fn set_db_folder(path: String) -> Result<(), String> {
     let p = PathBuf::from(&path);
     fs::create_dir_all(&p).map_err(|e| e.to_string())?;
@@ -81,7 +122,8 @@ fn read_file_named(name: String) -> Result<String, String> {
     p.push(&name);
     match fs::read_to_string(&p) {
         Ok(s) => Ok(s),
-        Err(_) => Ok(String::new()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(e) => Err(e.to_string()),
     }
 }
 
@@ -125,7 +167,12 @@ fn write_local_file_named(name: String, content: String) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            default_workspace_path,
+            choose_workspace_folder,
+            configure_workspace,
+            warehouse_access_mode,
             get_config,
             set_db_folder,
             read_file_named,
@@ -136,4 +183,3 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

@@ -11,6 +11,7 @@
         return matches.length === 1 ? matches[0] : -1;
     }
     function valueAt(columns, headers, spec, fallbackIndex, diagnostics, field) {
+        if (spec === null) return '';
         const explicit = hasExplicit(spec), idx = columnIndex(headers, spec);
         if (idx >= 0 && idx < columns.length) return String(columns[idx] == null ? '' : columns[idx]).trim();
         if (explicit) { if (diagnostics) diagnostics.missing.push(field || String(spec)); return ''; }

@@ -8,7 +8,7 @@ Categories have stable IDs, labels, display names, aliases, and controlled seman
 
 Special locations have IDs, labels, aliases, optional match expressions, types, tags, and behavior flags. Snapshot categories reference category IDs. Invalid profiles fail startup with a visible validation error; they are never silently replaced.
 
-The electronics compatibility profile keeps the v35 aliases and classifiers: RAW/BATTERY/PACKING, GR-ZONE, PN prefixes 52 and 90, LCD prefix 57 or DISPLAY, with UNDERDISPLAY excluded.
+The electronics profile includes these aliases and classifiers: RAW/BATTERY/PACKING, GR-ZONE, PN prefixes 52 and 90, LCD prefix 57 or DISPLAY, with UNDERDISPLAY excluded.
 
 ## Importing another warehouse's layout
 
@@ -33,4 +33,6 @@ For example, this compact master mapping reads three columns in any order when t
 Include every configured named column in the header row, including category quantity columns. Repeated copies of that header are ignored. Empty cells retain their positions; an explicitly mapped blank cell is valid, while a mapped column beyond the end of a row is missing. Rows with an empty mapped bin are skipped. Item numbers and descriptions may contain `PN` or `Storage Bin` without being mistaken for headers.
 
 Fields without mappings keep the legacy positional defaults. For compact detail layouts, explicitly map all fields (`partNumber`, `description`, `category`, `quantity`, `batch`, `bin`, and `handlingUnit`); include blank columns for unused batch or handling-unit values. Keep `electronics-demo.json` selected for the existing electronics layout.
+
+Optional mappings can also be `null` to deliberately return an empty value: master `category` and `binCategory`, or detail `description`, `batch`, and `handlingUnit`. The import assistant presents this as **Not used**. Required mappings cannot be null. Activated profiles are saved in `warehouse_profile.json` in the warehouse folder.
 

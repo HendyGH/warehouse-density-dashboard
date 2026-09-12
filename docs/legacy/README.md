@@ -1,4 +1,4 @@
 # Legacy build notes
 
-The root distribution notes are retained for v35 packaging compatibility. New public documentation is in the repository README and the profile/migration guides under `docs/`. No legacy note contains credentials or operational datasets.
+Current documentation is in the repository README, the profile guide and the upgrading guide under `docs/`. Internal compatibility identifiers are retained so existing installations continue to find their saved data.
 

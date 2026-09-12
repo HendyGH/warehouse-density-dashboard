@@ -5,9 +5,9 @@ function markerState(profileId, marker = {}) {
   return JSON.stringify({ rawDataInput: 'shared', __warehouseAppV2: JSON.stringify(Object.assign({ stateSchemaVersion: 2, profileId, updatedAt: '2026-09-06T00:00:00.000Z' }, marker)) });
 }
 
-function contextFor(machineRaw, sharedRaw) {
+function contextFor(machineRaw, sharedRaw, sharedProfile = '') {
   const calls = []; const local = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
-  const context = { console, window: { localStorage: local, __TAURI__: { core: { invoke: async (name, args) => { calls.push({ name, args }); if (name === 'get_config') return { db_folder: 'shared-folder' }; if (name === 'read_local_file_named') return machineRaw; if (name === 'read_file_named') return sharedRaw; return ''; } } } } };
+  const context = { console, window: { localStorage: local, __TAURI__: { core: { invoke: async (name, args) => { calls.push({ name, args }); if (name === 'get_config') return { db_folder: 'shared-folder' }; if (name === 'read_local_file_named') return machineRaw; if (name === 'read_file_named') return args.name === 'warehouse_profile.json' ? sharedProfile : sharedRaw; return ''; } } } } };
   vm.runInNewContext(storageSource, context, { filename: 'storage.js' }); vm.runInNewContext(migrationSource, context, { filename: 'migration.js' }); return { context, calls };
 }
 
@@ -61,5 +61,11 @@ function contextFor(machineRaw, sharedRaw) {
   assert.strictEqual(fresh.context.window.WarehouseMigration.classifySharedWarehouse({ hasSharedState: true, sharedMarker: { stateSchemaVersion: 2, profileId: 'generic' } }).kind, 'existing-v2');
   assert.strictEqual(fresh.context.window.WarehouseMigration.classifySharedWarehouse({ hasSharedState: true, sharedMarker: { stateSchemaVersion: 2 } }).kind, 'legacy-v35');
   console.log('migration integration tests passed');
+  const joined = contextFor('', markerState('cold-chain'), JSON.stringify({ schemaVersion: 1, id: 'cold-chain', categories: [] }));
+  await joined.context.window.MachineConfigReady;
+  assert.strictEqual(joined.context.window.MachineConfig.get('activeProfile').id, 'cold-chain');
+  assert.strictEqual(joined.context.window.MachineConfig.get('onboardingCompleted'), true);
+  const corrupt = contextFor('', '', '{broken');
+  await assert.rejects(corrupt.context.window.MachineConfigReady, /damaged/);
 })().catch(error => { console.error(error); process.exitCode = 1; });
 

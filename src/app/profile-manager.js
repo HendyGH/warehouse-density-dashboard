@@ -30,7 +30,10 @@
         return global.WarehouseOnboarding.createDraft(options);
     }
     async function activate(textOrProfile, profileApi) {
+        if (global.WarehouseAccess && !global.WarehouseAccess.canEdit) throw new Error('An editor or administrator must configure this warehouse.');
         const validated = typeof textOrProfile === 'string' ? parseAndValidate(textOrProfile, profileApi || global.WarehouseProfile) : (profileApi || global.WarehouseProfile).validate(textOrProfile);
+        const invoke = global.__TAURI__ && global.__TAURI__.core && global.__TAURI__.core.invoke;
+        if (invoke) await invoke('write_file_named', { name: 'warehouse_profile.json', content: JSON.stringify(validated, null, 2) });
         if (global.MachineConfig && typeof global.MachineConfig.set === 'function') {
             await global.MachineConfig.set('activeProfile', validated);
         }

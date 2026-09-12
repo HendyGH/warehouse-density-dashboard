@@ -87,7 +87,17 @@
             if (!localInvoke) return Promise.resolve(machineCache);
             return waitForDatabaseFolder().then(() => localInvoke('read_local_file_named', { name: machineFile })).then(raw => {
                 if (raw) { let parsed; try { parsed = JSON.parse(raw); } catch (error) { throw new Error(`Machine configuration file is corrupt: ${error.message}`); } if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw new Error('Machine configuration file has an invalid structure.'); Object.assign(machineCache, parsed); }
-                return MachineConfig.refreshLegacyState().then(() => machineCache);
+                return localInvoke('read_file_named', { name: 'warehouse_profile.json' }).then(shared => {
+                    if (shared) {
+                        let profile;
+                        try { profile = JSON.parse(shared); } catch (error) { throw new Error('The shared warehouse profile is damaged. Restore a backup.'); }
+                        if (!profile || typeof profile !== 'object' || Array.isArray(profile)) throw new Error('The shared warehouse profile has an invalid structure.');
+                        machineCache.activeProfile = profile;
+                        machineCache.onboardingCompleted = true;
+                        delete machineCache.profileSelectionRequired;
+                    }
+                    return MachineConfig.refreshLegacyState().then(() => machineCache);
+                });
             });
         },
         refreshLegacyState() {

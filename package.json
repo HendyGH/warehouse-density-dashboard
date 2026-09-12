@@ -1,13 +1,13 @@
 {
   "name": "warehouse-dashboard",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "scripts": {
     "tauri": "tauri",
-    "test": "node tests/profile.test.js && node tests/dashboard-profile-regression.test.js && node tests/segregation.test.js && node tests/mappings.test.js && node tests/import-integration.test.js && node tests/zone.test.js && node tests/onboarding.test.js && node tests/category-engine.test.js && node tests/migration.test.js && node tests/storage.test.js && node tests/modules.test.js && node tests/putaway.test.js && node tests/generic-warehouse.test.js && node tests/electronics-compatibility.test.js"
+    "test": "node tests/profile.test.js && node tests/dashboard-profile-regression.test.js && node tests/segregation.test.js && node tests/mappings.test.js && node tests/import-integration.test.js && node tests/zone.test.js && node tests/onboarding.test.js && node tests/category-engine.test.js && node tests/migration.test.js && node tests/storage.test.js && node tests/modules.test.js && node tests/putaway.test.js && node tests/generic-warehouse.test.js && node tests/electronics-compatibility.test.js && node tests/setup-ui.test.js"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2"
+    "@tauri-apps/cli": "^2",
+    "jsdom": "^26.1.0"
   }
 }
-

@@ -7,6 +7,7 @@
   var MEM = {};
   var ROLE = null;               // 'admin' | 'editor' | 'viewer'
   var CURRENT_USER = null;
+  var ACCOUNT_FREE = false;
   var SETTINGS = { idleLogoutMin: 15, maxFailed: 5, minPassword: 6 };
   var saveTimer = null, idleTimer = null, lastEditLog = 0;
   var STATE_FILE = 'warehouse_state_v35.json';
@@ -95,8 +96,8 @@
   function loadUsers(){
     return invoke('read_file_named', { name: USERS_FILE }).then(function(s){
       var obj = { users: [] };
-      if(s){ try { obj = JSON.parse(s); } catch(e){ obj = { users: [] }; } }
-      if(!obj.users) obj.users = [];
+      if(s){ try { obj = JSON.parse(s); } catch(e){ throw new Error('The accounts file is damaged. Restore a trusted backup.'); } }
+      if(!obj || !Array.isArray(obj.users)) throw new Error('The accounts file has an invalid structure. Restore a trusted backup.');
       if(!obj.settings) obj.settings = {};
       obj.settings.idleLogoutMin = (obj.settings.idleLogoutMin != null) ? obj.settings.idleLogoutMin : SETTINGS.idleLogoutMin;
       obj.settings.maxFailed = obj.settings.maxFailed || SETTINGS.maxFailed;
@@ -106,7 +107,7 @@
       var provided = obj.__sig;
       return computeSig(obj).then(function(expected){
         if(!provided || provided !== expected){
-          var err = new Error('Security check failed: the accounts file (' + USERS_FILE + ') was modified outside the app and cannot be trusted, so access is blocked to protect account roles.\n\nRestore the accounts file from a trusted backup.\n\nIf you are upgrading from an older version without a security signature, delete ' + USERS_FILE + ' in the database folder and reopen the app to recreate the administrator.');
+          var err = new Error('The accounts file failed its integrity check. Access is blocked to protect account roles. Restore the accounts file from a trusted backup or contact your administrator.');
           err.__tamper = true;
           throw err;
         }
@@ -132,17 +133,7 @@
 
   // ===== flows =====
   function setupFolder(){
-    return new Promise(function(resolve){
-      var inp = input('text', 'paste the folder path on the server');
-      var err = errline(); var save = button('Save database location', true);
-      save.onclick = function(){
-        var v = (inp.value || '').trim();
-        if(!v){ err.textContent = 'Path cannot be empty.'; return; }
-        save.disabled = true; err.textContent = '';
-        invoke('set_db_folder', { path: v }).then(function(){ resolve(); }).catch(function(e){ save.disabled = false; err.textContent = 'Failed: ' + e; });
-      };
-      setOverlay([ title('Shared Database Location'), sub('Paste the folder location on the server (Y: drive) where data & accounts are stored together. Everyone running this app must point to the same folder.'), label('Folder path'), inp, save, err ]);
-    });
+    return window.WarehouseSetup.start(invoke, { input: input, errline: errline, button: button, setOverlay: setOverlay, title: title, sub: sub, label: label, selectBox: selectBox });
   }
   function firstAdmin(){
     return new Promise(function(resolve){
@@ -226,7 +217,7 @@
     BLOCKED.forEach(function(fn){ try { window[fn] = function(){ return false; }; } catch(e){} });
     function hideByOnclick(s){ try { var list = document.querySelectorAll('button'); for(var i=0;i<list.length;i++){ var oc = list[i].getAttribute('onclick') || ''; if(oc.indexOf(s) >= 0) list[i].style.display='none'; } } catch(e){} }
     ['rawDataInput','detailedDataInput','npiModelInput','npiMonthInput','npiStartInput'].forEach(function(id){ var e=document.getElementById(id); if(e){ e.readOnly=true; e.disabled=true; e.style.opacity='0.7'; } });
-    ['btnGenerate','btnSaveSnapshot','btnAddNpi','btnCancelNpi'].forEach(function(id){ var e=document.getElementById(id); if(e){ e.style.display='none'; } });
+    ['btnGenerate','btnSaveSnapshot','btnAddNpi','btnCancelNpi','importAssistantButton'].forEach(function(id){ var e=document.getElementById(id); if(e){ e.style.display='none'; } });
     var ts=document.getElementById('autoSaveToggle'); if(ts){ ts.disabled=true; var lab=ts.closest ? ts.closest('label') : null; if(lab) lab.style.display='none'; }
     hideByOnclick('clearMemory'); hideByOnclick('savePutawayRulesFromModal'); hideByOnclick('addPutawayRule'); hideByOnclick('saveCurrentSnapshot');
   }
@@ -241,6 +232,10 @@
   }
 
   function addBadge(){
+    if(ACCOUNT_FREE){
+      var badge = el('div', 'position:fixed;right:12px;bottom:12px;z-index:2147482000;background:#0f766e;color:white;padding:8px 12px;border-radius:10px;font:600 12px sans-serif;', 'No-account mode');
+      badge.id = 'accountBadge'; document.body.appendChild(badge); return;
+    }
     var color = ROLE==='admin' ? '#059669' : (ROLE==='editor' ? '#2563eb' : '#7c3aed');
     var wrap = el('div', 'position:fixed;right:0;bottom:18px;z-index:2147482000;display:flex;align-items:stretch;font-family:sans-serif;');
     wrap.id = 'accountBadge';
@@ -367,20 +362,24 @@
   }
 
   function boot(){
-    domReady()
+    return domReady()
       .then(function(){ ensureOverlay(); setOverlay([ title('Loading...'), sub('Preparing the application.') ]); })
       .then(function(){ return invoke('get_config'); })
       .then(function(cfg){ if(!cfg || !cfg.db_folder){ return setupFolder(); } })
-      .then(function(){ return loadUsers(); })
-      .then(function(obj){ if(!obj.users || obj.users.length === 0){ return firstAdmin(); } })
-      .then(function(){ return login(); })
+      .then(function(){ return invoke('warehouse_access_mode'); })
+      .then(function(mode){
+        ACCOUNT_FREE = mode === 'open';
+        if(ACCOUNT_FREE){ ROLE = 'editor'; CURRENT_USER = { username: 'local-user', name: 'No-account session', role: 'editor' }; return; }
+        return loadUsers().then(function(obj){ if(obj.users.length === 0) return firstAdmin(); }).then(login);
+      })
       .then(function(){ return invoke('read_file_named', { name: STATE_FILE }); })
       .then(function(s){ var parsed = {}; if(s){ try { parsed = JSON.parse(s); } catch(e){ parsed = {}; } } MEM = parsed; })
       .then(function(){ return window.WarehouseProfileReady || Promise.resolve(); })
-      .then(function(){ hydrateAndRender(); if(!canEdit()){ lockViewerUI(); } addBadge(); startIdleTimer(); hideOverlay(); })
-      .catch(function(e){ ensureOverlay(); setOverlay([ title('An error occurred'), sub(String(e && e.message ? e.message : e)) ]); });
+      .then(function(){ window.WarehouseAccess = { canEdit: canEdit(), accountFree: ACCOUNT_FREE }; hydrateAndRender(); if(!canEdit()){ lockViewerUI(); } addBadge(); if(!ACCOUNT_FREE) startIdleTimer(); hideOverlay(); })
+      .catch(function(e){ ensureOverlay(); setOverlay([ title('Unable to open warehouse'), sub(String(e && e.message ? e.message : e)) ]); throw e; });
   }
 
-  boot();
+  window.TauriBootReady = boot();
+  window.TauriBootReady.catch(function(){ /* The startup overlay already displays the error. */ });
 })();
 

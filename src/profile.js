@@ -42,6 +42,8 @@
                     if (mapping != null && (typeof mapping !== 'object' || Array.isArray(mapping))) errors.push(`dataMappings.${kind} must be an object`);
                     if (mapping && typeof mapping === 'object' && !Array.isArray(mapping)) Object.keys(mapping).forEach(field => {
                         const value = mapping[field];
+                        const optional = kind === 'master' ? ['category', 'binCategory'] : ['description', 'batch', 'handlingUnit'];
+                        if (value === null && optional.includes(field)) return;
                         if (!(Number.isInteger(value) && value >= 0) && !(typeof value === 'string' && text(value))) errors.push(`dataMappings.${kind}.${field} must be a non-empty header or non-negative column index`);
                     });
                 });

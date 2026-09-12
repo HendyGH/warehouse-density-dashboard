@@ -33,11 +33,40 @@
         const doc = (options && options.document) || global.document;
         if (!doc || !doc.body) return null;
         const existing = doc.getElementById('warehouseOnboardingWizard'); if (existing) return existing;
-        const modal = doc.createElement('div'); modal.id = 'warehouseOnboardingWizard'; modal.style.cssText = 'position:fixed;inset:0;z-index:2147482001;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px';
-        const panel = doc.createElement('div'); panel.style.cssText = 'background:#fff;border-radius:16px;padding:20px;width:520px;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:Arial,sans-serif';
-        panel.innerHTML = '<h2 style="margin:0 0 6px">Set up this warehouse</h2><p style="margin:0 0 14px;color:#64748b;font-size:13px">Choose a name and categories. The profile is validated before activation.</p><label style="display:block;font-size:12px;font-weight:700">Warehouse name<input data-name style="display:block;width:100%;margin:4px 0 10px;padding:8px;border:1px solid #cbd5e1;border-radius:8px" value="My Warehouse"></label><label style="display:block;font-size:12px;font-weight:700">Categories (comma separated)<input data-categories style="display:block;width:100%;margin:4px 0 10px;padding:8px;border:1px solid #cbd5e1;border-radius:8px" value="GENERAL"></label><div data-status style="min-height:18px;font-size:12px;font-weight:700;margin-bottom:8px"></div><button type="button" data-save style="padding:9px 14px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer">Activate profile</button>';
-        panel.querySelector('[data-save]').onclick = async () => { const name = panel.querySelector('[data-name]').value; const categories = panel.querySelector('[data-categories]').value.split(',').map(label => ({ id: slug(label), label: label.trim().toUpperCase(), aliases: [label.trim().toUpperCase()] })).filter(item => item.id); const draft = createDraft({ name, categories }); const status = panel.querySelector('[data-status]'); try { validateDraft(draft, global.WarehouseProfile); if (global.ProfileManager && global.ProfileManager.activate) await global.ProfileManager.activate(draft, global.WarehouseProfile); if (global.MachineConfig) await global.MachineConfig.set('onboardingCompleted', true); status.style.color = '#047857'; status.textContent = 'Profile activated. Reload the dashboard to use it.'; modal.remove(); } catch (error) { status.style.color = '#b91c1c'; status.textContent = error.message; } };
-        modal.appendChild(panel); doc.body.appendChild(modal); return modal;
+        const modal = doc.createElement('div'); modal.id = 'warehouseOnboardingWizard'; modal.className = 'warehouse-dialog';
+        modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true'); modal.setAttribute('aria-label', 'Set up your warehouse');
+        const panel = doc.createElement('div'); panel.className = 'warehouse-panel';
+        panel.innerHTML = '<img src="assets/warehouse-icon.png" width="64" height="64" alt=""><p class="warehouse-eyebrow">STEP 2 OF 3</p><h2>Make it your warehouse</h2><p>Start with a template. You can adjust rules and modules later.</p><label>Warehouse name<input data-name value="My Warehouse" maxlength="100"></label><label>Template<select data-template><option value="generic">General warehouse</option><option value="electronics-demo">Electronics warehouse</option></select></label><label data-category-label>Categories (comma separated)<input data-categories value="GENERAL"></label><p data-template-note>Use your own product groups, such as Ambient, Chilled, Frozen, or Returns.</p><div data-status role="status"></div><button type="button" data-save class="warehouse-primary">Save and continue</button>';
+        const template = panel.querySelector('[data-template]');
+        template.onchange = () => {
+            panel.querySelector('[data-category-label]').hidden = template.value !== 'generic';
+            panel.querySelector('[data-template-note]').textContent = template.value === 'generic' ? 'Use your own product groups, such as Ambient, Chilled, Frozen, or Returns.' : 'Includes raw material, battery and packing categories, receiving, and electronics putaway rules.';
+        };
+        panel.querySelector('[data-save]').onclick = async () => {
+            const status = panel.querySelector('[data-status]'), save = panel.querySelector('[data-save]');
+            save.disabled = true; status.textContent = '';
+            try {
+                const name = panel.querySelector('[data-name]').value.trim();
+                if (!name) throw new Error('Enter a warehouse name.');
+                let draft;
+                if (template.value === 'electronics-demo') {
+                    const example = await global.WarehouseProfile.load('./profiles/electronics-demo.json');
+                    draft = JSON.parse(JSON.stringify(example.profile)); draft.name = name;
+                } else {
+                    const categories = panel.querySelector('[data-categories]').value.split(',').map(value => value.trim()).filter(Boolean)
+                        .map((label, index) => ({ id: slug(label) === 'general' && !/^general$/i.test(label) ? 'category-' + (index + 1) : slug(label), label, aliases: [] }));
+                    if (!categories.length) throw new Error('Add at least one category.');
+                    draft = createDraft({ name, categories });
+                }
+                validateDraft(draft, global.WarehouseProfile);
+                await global.ProfileManager.activate(draft, global.WarehouseProfile);
+                if (global.MachineConfig) await global.MachineConfig.set('onboardingCompleted', true);
+                if (global.configureWarehouseProfile) global.configureWarehouseProfile(global.WarehouseProfile);
+                modal.remove();
+                if (global.WarehouseImportAssistant) global.WarehouseImportAssistant.open();
+            } catch (error) { status.textContent = error.message; save.disabled = false; }
+        };
+        modal.appendChild(panel); doc.body.appendChild(modal); panel.querySelector('[data-name]').focus(); return modal;
     }
     global.WarehouseOnboarding = { createDraft, validateDraft, startWizard };
 })(window);
