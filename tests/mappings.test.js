@@ -13,5 +13,16 @@ assert.strictEqual(JSON.stringify(mapped), JSON.stringify({ partNumber: '571234'
 const master = api.mapMasterRow(['O1-A01', 'x', 'x', '2', 'RAW MATERIAL', 'RAW MATERIAL', '2', '0', '0'], [], {}, { 'raw-material': 6, battery: 7, packing: 8 });
 assert.strictEqual(master.bin, 'O1-A01');
 assert.strictEqual(master.categoryQuantities['raw-material'], '2');
+assert.strictEqual(api.columnIndex(['库位', '数量'], '数量'), 1);
+assert.strictEqual(api.columnIndex(['Café'], 'Cafe\u0301'), 0);
+assert.strictEqual(api.columnIndex(['ＳＫＵ'], 'SKU'), 0);
+assert.strictEqual(api.columnIndex(['', '---'], '---'), -1);
+assert.strictEqual(api.columnIndex(['Storage Bin', 'Storage_Bin'], 'Storage Bin'), -1);
+const diagnostics = api.mappingDiagnostics();
+api.mapMasterRow(['A'], [], { bin: 0, palletCount: 5 }, {}, diagnostics);
+assert.ok(diagnostics.missing.includes('palletCount'));
+const missing = api.mappingDiagnostics();
+api.mapDetailRow(row, headers, { partNumber: 'Missing SKU' }, missing);
+assert.ok(missing.missing.includes('partNumber'));
 console.log('mapping regression tests passed');
 

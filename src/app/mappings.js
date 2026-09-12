@@ -1,11 +1,18 @@
 (function (global) {
     'use strict';
-    function headerKey(value) { return String(value == null ? '' : value).trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
+    function headerKey(value) { return String(value == null ? '' : value).normalize('NFKC').trim().toLowerCase().replace(/[^\p{L}\p{N}\p{M}]/gu, ''); }
     function hasExplicit(spec) { return spec !== undefined && spec !== null && String(spec).trim() !== ''; }
-    function columnIndex(headers, spec) { if (Number.isInteger(spec)) return spec >= 0 ? spec : -1; if (!hasExplicit(spec)) return -1; const target = headerKey(spec); return (headers || []).findIndex(header => headerKey(header) === target); }
+    function columnIndex(headers, spec) {
+        if (Number.isInteger(spec)) return spec >= 0 ? spec : -1;
+        if (!hasExplicit(spec)) return -1;
+        const target = headerKey(spec);
+        if (!target) return -1;
+        const matches = (headers || []).map((header, index) => headerKey(header) === target ? index : -1).filter(index => index >= 0);
+        return matches.length === 1 ? matches[0] : -1;
+    }
     function valueAt(columns, headers, spec, fallbackIndex, diagnostics, field) {
         const explicit = hasExplicit(spec), idx = columnIndex(headers, spec);
-        if (idx >= 0) return String(columns[idx] == null ? '' : columns[idx]).trim();
+        if (idx >= 0 && idx < columns.length) return String(columns[idx] == null ? '' : columns[idx]).trim();
         if (explicit) { if (diagnostics) diagnostics.missing.push(field || String(spec)); return ''; }
         return fallbackIndex >= 0 ? String(columns[fallbackIndex] == null ? '' : columns[fallbackIndex]).trim() : '';
     }
@@ -22,7 +29,27 @@
         if (diagnostics) result.diagnostics = d; return result;
     }
     function parseDelimited(text) { return String(text || '').split(/\r?\n/).filter(line => line.trim()).map(line => line.split('\t')); }
+    function prepareImport(text, mapping, kind, quantityMapping) {
+        const rows = parseDelimited(text);
+        const names = Object.values(mapping || {}).concat(Object.values(quantityMapping || {}))
+            .filter(value => typeof value === 'string' && hasExplicit(value)).map(headerKey);
+        const expected = Array.from(new Set(names));
+        let headerIndex = -1;
+        if (expected.length) {
+            headerIndex = rows.findIndex(row => expected.every(name => row.some(cell => headerKey(cell) === name)));
+        }
+        if (headerIndex < 0) {
+            headerIndex = rows.findIndex(row => {
+                const keys = row.map(headerKey);
+                return kind === 'detail' ? keys.includes('pn') && keys.includes('description')
+                    : keys.includes('storagebin') && keys.includes('pallets');
+            });
+        }
+        const headers = headerIndex >= 0 ? rows[headerIndex] : [];
+        return { headers, rows: rows.filter((row, index) => index !== headerIndex &&
+            !(headers.length && row.length === headers.length && row.every((cell, i) => headerKey(cell) === headerKey(headers[i])))) };
+    }
     global.WarehouseApp = global.WarehouseApp || {};
-    Object.assign(global.WarehouseApp, { headerKey, columnIndex, mapDetailRow, mapMasterRow, parseDelimited, mappingDiagnostics: begin });
+    Object.assign(global.WarehouseApp, { headerKey, columnIndex, mapDetailRow, mapMasterRow, parseDelimited, prepareImport, mappingDiagnostics: begin });
 })(window);
 

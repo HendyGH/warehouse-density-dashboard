@@ -10,3 +10,27 @@ Special locations have IDs, labels, aliases, optional match expressions, types, 
 
 The electronics compatibility profile keeps the v35 aliases and classifiers: RAW/BATTERY/PACKING, GR-ZONE, PN prefixes 52 and 90, LCD prefix 57 or DISPLAY, with UNDERDISPLAY excluded.
 
+## Importing another warehouse's layout
+
+Paste tab-separated data, such as cells copied from a spreadsheet. Set `dataMappings.master` and `dataMappings.detail` to your column headers, or use zero-based column indices for headerless data. Header names are case-insensitive, ignore spaces and punctuation, and support Unicode letters and numbers. Headers must be unique after normalization; ambiguous or missing mapped columns cause affected rows to be skipped with a warning rather than using a different column.
+
+For example, this compact master mapping reads three columns in any order when the named headers are included:
+
+```json
+{
+  "dataMappings": {
+    "master": {
+      "bin": "Location",
+      "palletCount": "Pallets",
+      "category": "Type",
+      "binCategory": "Type"
+    },
+    "categoryQuantityColumns": {}
+  }
+}
+```
+
+Include every configured named column in the header row, including category quantity columns. Repeated copies of that header are ignored. Empty cells retain their positions; an explicitly mapped blank cell is valid, while a mapped column beyond the end of a row is missing. Rows with an empty mapped bin are skipped. Item numbers and descriptions may contain `PN` or `Storage Bin` without being mistaken for headers.
+
+Fields without mappings keep the legacy positional defaults. For compact detail layouts, explicitly map all fields (`partNumber`, `description`, `category`, `quantity`, `batch`, `bin`, and `handlingUnit`); include blank columns for unused batch or handling-unit values. Keep `electronics-demo.json` selected for the existing electronics layout.
+

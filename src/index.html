@@ -3157,23 +3157,19 @@
             let grItemsByHU = {};
             const activeProfileConfig = (window.WarehouseProfile && window.WarehouseProfile.profile) || {};
             const mappingApi = window.WarehouseApp && typeof window.WarehouseApp.mapDetailRow === 'function' ? window.WarehouseApp : null;
-            const detailLines = detailText ? detailText.split(/\r?\n/) : [];
-            const rawLines = rawText ? rawText.split(/\r?\n/) : [];
-            const detailHeaderLine = detailLines.find(line => /\bpn\b/i.test(line) && /description/i.test(line));
-            const masterHeaderLine = rawLines.find(line => /storage\s*bin/i.test(line));
-            const detailHeaders = detailHeaderLine ? detailHeaderLine.split('\t') : [];
-            const masterHeaders = masterHeaderLine ? masterHeaderLine.split('\t') : [];
             const detailMapping = activeProfileConfig.dataMappings && activeProfileConfig.dataMappings.detail || {};
             const masterMapping = activeProfileConfig.dataMappings && activeProfileConfig.dataMappings.master || {};
             const quantityMapping = activeProfileConfig.dataMappings && activeProfileConfig.dataMappings.categoryQuantityColumns || {};
+            const detailImport = mappingApi.prepareImport(detailText, detailMapping, 'detail');
+            const masterImport = mappingApi.prepareImport(rawText, masterMapping, 'master', quantityMapping);
+            const detailHeaders = detailImport.headers;
+            const masterHeaders = masterImport.headers;
 
             if (detailText) {
-                const detLines = detailLines;
+                const detLines = detailImport.rows;
                 for (let i = 0; i < detLines.length; i++) {
-                    let line = detLines[i].trim();
-                    if (!line || line.toLowerCase().includes('storage bin') || line.toLowerCase().includes('pn')) continue;
-                    let cols = line.split('\t');
-                    if (cols.length < 6) { warnings.skippedDetailRows++; continue; }
+                    const cols = detLines[i];
+                    if (!Object.keys(detailMapping).length && cols.length < 6) { warnings.skippedDetailRows++; continue; }
 
                     const detailDiagnostics = mappingApi && Object.keys(detailMapping).length ? mappingApi.mappingDiagnostics() : null;
                     const mapped = mappingApi ? mappingApi.mapDetailRow(cols, detailHeaders, detailMapping, detailDiagnostics) : null;
@@ -3190,6 +3186,7 @@
                     let batch = (mapped ? mapped.batch : cols[4]).trim();
                     let bin = (mapped ? mapped.bin : cols[5]).trim();
                     let hu = (mapped ? mapped.handlingUnit : (cols.length > 6 ? cols[6] : '')).trim();
+                    if (!bin) { warnings.skippedDetailRows++; continue; }
 
                     if (rawQty && !Number.isFinite(qty)) warnings.invalidQuantities++;
                     const detailItem = { pn, desc, category, categoryId, qty, batch, bin, hu };
@@ -3229,22 +3226,20 @@
             }
 
             if (rawText) {
-                const lines = rawLines;
+                const lines = masterImport.rows;
                 for (let i = 0; i < lines.length; i++) {
-                    let line = lines[i].trim();
-                    if (!line || line.toLowerCase().includes('storage bin')) continue;
-                    let cols = line.split('\t');
-                    if (cols.length < 1 || !cols[0].trim()) { warnings.skippedMasterRows++; continue; }
+                    const cols = lines[i];
                     
                     const masterDiagnostics = mappingApi && (Object.keys(masterMapping).length || Object.keys(quantityMapping).length) ? mappingApi.mappingDiagnostics() : null;
                     const mapped = mappingApi && typeof mappingApi.mapMasterRow === 'function'
                         ? mappingApi.mapMasterRow(cols, masterHeaders, masterMapping, quantityMapping, masterDiagnostics) : null;
                     if (masterDiagnostics && masterDiagnostics.missing.length) { warnings.missingRequiredMappings.push(...masterDiagnostics.missing); warnings.skippedMasterRows++; continue; }
                     let bin = (mapped ? mapped.bin : (cols[0] || "Unknown")).trim();
+                    if (!bin) { warnings.skippedMasterRows++; continue; }
                     if (isProfileSpecialLocation(bin)) continue;
 
                     let palletRaw = (mapped ? mapped.palletCount : (cols.length >= 4 ? cols[3] : '')).trim();
-                    let palletCount = cols.length >= 4 ? parseInt(palletRaw) || 0 : 0;
+                    let palletCount = parseInt(palletRaw, 10) || 0;
                     if (palletRaw && isNaN(parseInt(palletRaw))) warnings.invalidMasterPalletRows++;
 
                     let cat = (mapped ? mapped.category : (cols.length >= 5 ? cols[4] : '')).trim();
@@ -3342,8 +3337,9 @@
                 renderTrendDashboard();
                 const warnings = [];
                 if (!det.trim()) warnings.push('Current Detailed Stock is empty. Map metrics still work, but detail rows and high-value detection may be incomplete.');
-                if (currentStats.warnings.skippedDetailRows > 0) warnings.push(`${currentStats.warnings.skippedDetailRows} current detail row(s) were skipped because they had fewer than 6 columns.`);
-                if (currentStats.warnings.skippedMasterRows > 0) warnings.push(`${currentStats.warnings.skippedMasterRows} current master row(s) were skipped because Storage Bin was missing.`);
+                if (currentStats.warnings.skippedDetailRows > 0) warnings.push(`${currentStats.warnings.skippedDetailRows} current detail row(s) were skipped because of missing columns, an empty bin, or a rejected category.`);
+                if (currentStats.warnings.skippedMasterRows > 0) warnings.push(`${currentStats.warnings.skippedMasterRows} current master row(s) were skipped because of missing columns, an empty bin, or a rejected category.`);
+                if (currentStats.warnings.missingRequiredMappings.length) warnings.push(`Missing or ambiguous mapped columns: ${Array.from(new Set(currentStats.warnings.missingRequiredMappings)).join(', ')}. Check the pasted headers and active profile mappings.`);
                 if (currentStats.warnings.invalidMasterPalletRows > 0) warnings.push(`${currentStats.warnings.invalidMasterPalletRows} current master row(s) had invalid pallet counts and were treated as 0.`);
                 if (currentStats.warnings.unassignedBinCatRows > 0) {
                     const fallbackLabel = profileCategoryLabel((window.WarehouseProfile && window.WarehouseProfile.getDefaultCategoryId && window.WarehouseProfile.getDefaultCategoryId()) || '');
