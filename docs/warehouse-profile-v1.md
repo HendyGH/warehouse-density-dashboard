@@ -36,3 +36,13 @@ Fields without mappings keep the legacy positional defaults. For compact detail 
 
 Optional mappings can also be `null` to deliberately return an empty value: master `category` and `binCategory`, or detail `description`, `batch`, and `handlingUnit`. The import assistant presents this as **Not used**. Required mappings cannot be null. Activated profiles are saved in `warehouse_profile.json` in the warehouse folder.
 
+## Classifier quantities and high-value stock
+
+Each parsed bin has `classifierQuantities`, keyed by classifier ID and summed from matching detail quantities. Classifiers receive the complete detail record, including category, batch, bin, handling unit and quantity. `highValueQty` counts each matching item's quantity once, even when multiple classifiers tagged `high-value` match it. Receiving statistics also expose these fields.
+
+High-value filters, totals, legends and badges use the profile's `high-value` tags rather than fixed electronics IDs. The `pcbaQty`, `phoneQty` and `lcdQty` fields remain compatibility aliases. Classifier totals can overlap and should not be added together as a distinct-stock total.
+
+## Category identifiers
+
+Setup-generated category IDs preserve Unicode letters, numbers and combining marks, with NFC normalization. Chinese, Thai and accented labels retain distinct IDs. Labels containing only symbols use a deterministic code-point identifier, so reordering categories does not change their IDs. Canonically equivalent duplicate names are rejected by validation. Snapshot references are generated from the final category IDs. Existing saved profile IDs are not rewritten.
+

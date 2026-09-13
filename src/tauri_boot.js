@@ -8,6 +8,7 @@
   var ROLE = null;               // 'admin' | 'editor' | 'viewer'
   var CURRENT_USER = null;
   var ACCOUNT_FREE = false;
+  var STATE_READY = false;
   var SETTINGS = { idleLogoutMin: 15, maxFailed: 5, minPassword: 6 };
   var saveTimer = null, idleTimer = null, lastEditLog = 0;
   var STATE_FILE = 'warehouse_state_v35.json';
@@ -17,7 +18,7 @@
 
   function nowISO(){ return new Date().toISOString(); }
   function fmt(iso){ if(!iso) return '-'; try { return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
-  function canEdit(){ return ROLE === 'admin' || ROLE === 'editor'; }
+  function canEdit(){ return STATE_READY && (ROLE === 'admin' || ROLE === 'editor'); }
   function isAdmin(){ return ROLE === 'admin'; }
   function roleLabel(r){ return ROLE_LABELS[r] || r; }
 
@@ -373,10 +374,18 @@
         return loadUsers().then(function(obj){ if(obj.users.length === 0) return firstAdmin(); }).then(login);
       })
       .then(function(){ return invoke('read_file_named', { name: STATE_FILE }); })
-      .then(function(s){ var parsed = {}; if(s){ try { parsed = JSON.parse(s); } catch(e){ parsed = {}; } } MEM = parsed; })
+      .then(function(s){
+        var parsed = {};
+        if(s !== '') {
+          try { parsed = JSON.parse(s); } catch(e){ throw new Error('Warehouse state is damaged. Restore a trusted backup before continuing.'); }
+          if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Warehouse state has an invalid structure. Restore a trusted backup before continuing.');
+        }
+        MEM = parsed;
+        STATE_READY = true;
+      })
       .then(function(){ return window.WarehouseProfileReady || Promise.resolve(); })
       .then(function(){ window.WarehouseAccess = { canEdit: canEdit(), accountFree: ACCOUNT_FREE }; hydrateAndRender(); if(!canEdit()){ lockViewerUI(); } addBadge(); if(!ACCOUNT_FREE) startIdleTimer(); hideOverlay(); })
-      .catch(function(e){ ensureOverlay(); setOverlay([ title('Unable to open warehouse'), sub(String(e && e.message ? e.message : e)) ]); throw e; });
+      .catch(function(e){ STATE_READY = false; ROLE = null; if(saveTimer) clearTimeout(saveTimer); ensureOverlay(); setOverlay([ title('Unable to open warehouse'), sub(String(e && e.message ? e.message : e)) ]); throw e; });
   }
 
   window.TauriBootReady = boot();

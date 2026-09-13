@@ -5,13 +5,13 @@ const source = file => fs.readFileSync('src/' + file, 'utf8');
 const tick = () => new Promise(resolve => setTimeout(resolve, 20));
 function dom() { return new JSDOM('<!doctype html><body><textarea id="rawDataInput"></textarea><textarea id="detailedDataInput"></textarea></body>', { url: 'http://localhost/', runScripts: 'outside-only' }); }
 
-async function boot(mode, users = '') {
+async function boot(mode, users = '', state = '{}') {
     const page = dom(), w = page.window, calls = [];
     w.__TAURI__ = { core: { invoke: async (name, args) => {
         calls.push({ name, args });
         if (name === 'get_config') return { db_folder: 'warehouse' };
         if (name === 'warehouse_access_mode') return mode;
-        if (name === 'read_file_named') return args.name === 'users_v35.json' ? users : '{}';
+        if (name === 'read_file_named') return args.name === 'users_v35.json' ? users : state;
         return '';
     } } };
     w.WarehouseProfileReady = Promise.resolve();
@@ -30,6 +30,24 @@ async function boot(mode, users = '') {
     await new Promise(resolve => setTimeout(resolve, 900));
     assert.ok(free.calls.some(c => c.name === 'write_file_named' && c.args.name === 'warehouse_state_v35.json' && c.args.content.includes('inventory')));
     free.page.window.close();
+    for (const state of ['{broken', '[]', 'null', '"text"', '42', 'false', '   ']) {
+        const corrupt = await boot('open', '', state);
+        await assert.rejects(corrupt.w.TauriBootReady, /Warehouse state/);
+        assert.ok(corrupt.w.document.body.textContent.includes('Restore a trusted backup'));
+        assert.ok(!corrupt.w.WarehouseAccess);
+        corrupt.w.localStorage.setItem('rawDataInput', 'must not save');
+        await new Promise(resolve => setTimeout(resolve, 850));
+        assert.ok(!corrupt.calls.some(c => c.name === 'write_file_named'));
+        corrupt.page.window.close();
+    }
+    const missing = await boot('open', '', '');
+    await missing.w.TauriBootReady; assert.strictEqual(missing.w.WarehouseAccess.canEdit, true); missing.page.window.close();
+    let completeRead;
+    const pending = await boot('open', '', new Promise(resolve => { completeRead = resolve; }));
+    await tick(); pending.w.localStorage.setItem('premature', 'write');
+    assert.strictEqual(pending.w.localStorage.getItem('premature'), null);
+    completeRead('{"rawDataInput":"saved inventory"}'); await pending.w.TauriBootReady;
+    assert.strictEqual(pending.w.localStorage.getItem('rawDataInput'), 'saved inventory'); pending.page.window.close();
     const protectedWarehouse = await boot('accounts', '{broken');
     await assert.rejects(protectedWarehouse.w.TauriBootReady, /damaged/);
     assert.ok(!protectedWarehouse.w.WarehouseAccess);

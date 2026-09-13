@@ -1,24 +1,27 @@
 (function (global) {
     'use strict';
     function slug(value) {
-        return String(value || 'general').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'general';
+        const normalized = String(value || '').normalize('NFC').trim().toLowerCase();
+        return normalized.replace(/[^\p{L}\p{N}\p{M}_-]+/gu, '-').replace(/^-+|-+$/g, '') ||
+            (normalized ? 'u-' + Array.from(normalized, c => c.codePointAt(0).toString(16)).join('-') : 'general');
     }
     function createDraft(options) {
         const opts = options || {};
         const categories = Array.isArray(opts.categories) && opts.categories.length ? opts.categories : [{ id: 'general', label: 'GENERAL', aliases: ['GENERAL'] }];
         const id = slug(opts.id || opts.name || 'warehouse');
+        const normalizedCategories = categories.map((category, index) => ({
+                id: slug(category.id || category.label || `category-${index + 1}`),
+                label: String(category.label || category.id || `CATEGORY ${index + 1}`).trim().toUpperCase(),
+                display: String(category.display || category.label || category.id || `Category ${index + 1}`).trim(),
+                aliases: Array.isArray(category.aliases) ? category.aliases.slice() : []
+            }));
         return {
             schemaVersion: 1,
             id,
             name: String(opts.name || 'New Warehouse').trim(),
             unknownCategoryPolicy: opts.unknownCategoryPolicy || 'preserve',
-            categories: categories.map((category, index) => ({
-                id: slug(category.id || category.label || `category-${index + 1}`),
-                label: String(category.label || category.id || `CATEGORY ${index + 1}`).trim().toUpperCase(),
-                display: String(category.display || category.label || category.id || `Category ${index + 1}`).trim(),
-                aliases: Array.isArray(category.aliases) ? category.aliases.slice() : []
-            })),
-            snapshotCategories: Array.isArray(opts.snapshotCategories) ? opts.snapshotCategories.slice() : categories.slice(0, 4).map(category => slug(category.id || category.label)),
+            categories: normalizedCategories,
+            snapshotCategories: Array.isArray(opts.snapshotCategories) ? opts.snapshotCategories.slice() : normalizedCategories.slice(0, 4).map(category => category.id),
             classifiers: Array.isArray(opts.classifiers) ? opts.classifiers.slice() : [],
             specialLocations: Array.isArray(opts.specialLocations) ? opts.specialLocations.slice() : [],
             segregation: { enabled: false, rules: [] },
@@ -54,7 +57,7 @@
                     draft = JSON.parse(JSON.stringify(example.profile)); draft.name = name;
                 } else {
                     const categories = panel.querySelector('[data-categories]').value.split(',').map(value => value.trim()).filter(Boolean)
-                        .map((label, index) => ({ id: slug(label) === 'general' && !/^general$/i.test(label) ? 'category-' + (index + 1) : slug(label), label, aliases: [] }));
+                        .map(label => ({ id: slug(label), label, aliases: [] }));
                     if (!categories.length) throw new Error('Add at least one category.');
                     draft = createDraft({ name, categories });
                 }

@@ -1955,24 +1955,7 @@
                 <div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-wrap">
                     <span class="text-xs font-black text-slate-700 uppercase tracking-wider border-r pr-4">Material Keys</span>
                     <div id="materialCategoryLegend" class="flex items-center gap-4 flex-wrap"></div>
-                    <div data-profile-classifier="pcba" class="flex items-center gap-1.5 text-xs font-bold text-slate-600 ml-2">
-                        <div class="w-4 h-4 rounded bg-slate-200 border border-slate-300 flex items-center justify-center">
-                            <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
-                        </div> 
-                        PCBA
-                    </div>
-                    <div data-profile-classifier="phone" class="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                        <div class="w-4 h-4 rounded bg-slate-200 border border-slate-300 flex items-center justify-center">
-                            <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                        </div> 
-                        Phone
-                    </div>
-                    <div data-profile-classifier="lcd" class="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                        <div class="w-4 h-4 rounded bg-slate-200 border border-slate-300 flex items-center justify-center">
-                            <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" stroke-width="2.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 17v3M9 20h6"/></svg>
-                        </div> 
-                        LCD
-                    </div>
+                    <div id="classifierLegend" class="flex items-center gap-4 flex-wrap"></div>
                 </div>
             </div>
 
@@ -2450,7 +2433,7 @@
 
         Chart.register(ChartDataLabels);
 
-        const APP_VERSION = 'v2.1.0';
+        const APP_VERSION = 'v2.1.1';
         let STORAGE_BIN_GR = 'GR-ZONE';
         const INPUT_AUTOSAVE_KEY = 'warehouseInputAutoSave_v35';
         const TREND_STORAGE_KEY = 'warehouseTrendSnapshots_v35';
@@ -2668,13 +2651,11 @@
                 if (typeof getFilteredData === 'function' && currentStats && currentStats.data && currentStats.data.length) {
                     const rows = getFilteredData();
                     const pallets = rows.reduce((a, r) => a + (Number(r.palletCount) || 0), 0);
-                    const pcba = rows.reduce((a, r) => a + (Number(r.pcbaQty) || 0), 0);
-                    const phone = rows.reduce((a, r) => a + (Number(r.phoneQty) || 0), 0);
-                    const lcd = rows.reduce((a, r) => a + (Number(r.lcdQty) || 0), 0);
                     let extra = '';
-                    if (pcba) extra += ` • PCBA ${pcba.toLocaleString()}`;
-                    if (phone) extra += ` • Phone ${phone.toLocaleString()}`;
-                    if (lcd) extra += ` • LCD ${lcd.toLocaleString()}`;
+                    (window.WarehouseProfile.profile.classifiers || []).filter(c => c.tags.includes('high-value')).forEach(c => {
+                        const quantity = rows.reduce((sum, row) => sum + window.WarehouseProfile.getClassifierQuantity(row, c.id), 0);
+                        if (quantity) extra += ' • ' + (c.label || c.id) + ' ' + quantity.toLocaleString();
+                    });
                     sumTxt = ` — Total ${pallets.toLocaleString()} pallets${extra}`;
                 }
             } catch (e) {}
@@ -2780,8 +2761,8 @@
                 });
                 const highValueClassifiers = (window.WarehouseProfile && window.WarehouseProfile.profile && window.WarehouseProfile.profile.classifiers || []).filter(item => (item.tags || []).includes('high-value'));
                 highValueClassifiers.forEach(classifier => {
-                    const total = rows.reduce((sum, row) => sum + (classifier.id === 'pcba' ? Number(row.pcbaQty) || 0 : classifier.id === 'phone' ? Number(row.phoneQty) || 0 : classifier.id === 'lcd' ? Number(row.lcdQty) || 0 : 0), 0);
-                    if (total) html += modalTotalChip(classifier.id, total, 'bg-purple-100 text-purple-800');
+                    const total = rows.reduce((sum, row) => sum + window.WarehouseProfile.getClassifierQuantity(row, classifier.id), 0);
+                    if (total) html += modalTotalChip(classifier.label || classifier.id, total, 'bg-purple-100 text-purple-800');
                 });
                 el.innerHTML = html;
             } else if (modalState.type === 'gr') {
@@ -3118,6 +3099,15 @@
             return false;
         }
 
+        function classifierBadgeHTML(row, map = false) {
+            const icons = map ? { pcba: pcbaMapIcon, phone: phoneMapIcon, lcd: lcdMapIcon } : { pcba: pcbaIconPurple, phone: phoneIconBlue, lcd: lcdIconCyan };
+            return window.WarehouseProfile.getHighValueClassifiers(row).map(c => {
+                const label = escapeHTML(c.label || c.id);
+                const icon = Object.prototype.hasOwnProperty.call(icons, c.id) ? icons[c.id] : '<span style="color:#7c3aed;font-weight:900">◆</span>';
+                return '<span title="High value: ' + label + '" aria-label="High value: ' + label + '">' + icon + '</span>';
+            }).join('');
+        }
+
         function buildRowSearchText(row, binItems = []) {
             const tokens = [
                 row.bin, row.zone, `zone ${row.zone}`, row.aisle, `aisle ${row.aisle}`,
@@ -3125,9 +3115,7 @@
                 row.rmQty > 0 ? 'raw raw material rm' : '',
                 row.batQty > 0 ? 'battery bat' : '',
                 row.packQty > 0 ? 'packing pack' : '',
-                row.pcbaQty > 0 ? 'pcba high value' : '',
-                row.phoneQty > 0 ? 'phone high value' : '',
-                row.lcdQty > 0 ? 'lcd display high value' : '',
+                ...window.WarehouseProfile.getHighValueClassifiers(row).map(c => [c.id, c.label || '', 'high value'].join(' ')),
                 isContaminated(row) ? 'contaminated contamination mixed' : '',
                 row.palletCount === 0 ? 'empty' : 'occupied used'
             ];
@@ -3214,7 +3202,7 @@
                             
                             if (categoryId) grHUToCats[hu].add(categoryId);
 
-                            const classifierResults = window.WarehouseProfile && typeof window.WarehouseProfile.classify === 'function' ? window.WarehouseProfile.classify({ pn, desc }) : [];
+                            const classifierResults = window.WarehouseProfile && typeof window.WarehouseProfile.classify === 'function' ? window.WarehouseProfile.classify(detailItem) : [];
                             classifierResults.forEach(result => { grClassifierCounts[result.id] = (grClassifierCounts[result.id] || 0) + 1; });
                             if (hasProfileClassifier(pn, desc, 'pcba')) grHasPCBA = true;
                             if (hasProfileClassifier(pn, desc, 'phone')) grHasPhone = true;
@@ -3273,19 +3261,18 @@
                     const packQty = categoryQuantities.packing || 0;
 
                     let binItems = detailByBin[bin] || [];
-                    let pcbaQty = 0, phoneQty = 0, lcdQty = 0;
-                    binItems.forEach(d => {
-                        if (hasProfileClassifier(d.pn, d.desc, 'pcba')) pcbaQty += d.qty;
-                        if (hasProfileClassifier(d.pn, d.desc, 'phone')) phoneQty += d.qty;
-                        if (isLCD(d.pn, d.desc)) lcdQty += d.qty;
-                    });
+                    const classifierStats = window.WarehouseProfile.aggregateClassifiers(binItems);
+                    const { classifierQuantities, highValueQty } = classifierStats;
+                    const pcbaQty = classifierQuantities.pcba || 0;
+                    const phoneQty = classifierQuantities.phone || 0;
+                    const lcdQty = classifierQuantities.lcd || 0;
 
                     const detectedZone = window.WarehouseApp && typeof window.WarehouseApp.detectZone === 'function'
                         ? window.WarehouseApp.detectZone(bin, window.WarehouseProfile) : null;
                     let zone = detectedZone ? detectedZone.zone : (bin.split('-')[0] || "Unknown");
                     let aisle = detectedZone ? detectedZone.aisle : ((bin.split('-').length > 1) ? bin.split('-')[1] : "Misc");
 
-                    let rowObj = { bin, zone, aisle, palletCount, category: cat, binCat, categoryQuantities, rmQty, batQty, packQty, pcbaQty, phoneQty, lcdQty };
+                    let rowObj = { bin, zone, aisle, palletCount, category: cat, binCat, categoryQuantities, rmQty, batQty, packQty, pcbaQty, phoneQty, lcdQty, classifierQuantities, highValueQty };
                     rowObj.searchText = buildRowSearchText(rowObj, binItems);
                     
                     tMasterBins++;
@@ -3317,6 +3304,7 @@
                 hasPhone: grHasPhone,
                 hasLCD: grHasLCD,
                 classifiers: grClassifierCounts,
+                ...window.WarehouseProfile.aggregateClassifiers(grItems),
                 huToCats: grHUToCats,
                 items: grItems,
                 itemsByHU: grItemsByHU
@@ -3486,11 +3474,12 @@
                 let alertContainer = document.getElementById('grHighValueAlert');
                 alertContainer.innerHTML = '';
                 
-                const highValueClassifiers = Object.keys(gr.classifiers || {}).filter(id => {
+                const highValueClassifiers = Object.keys(gr.classifierQuantities || gr.classifiers || {}).filter(id => {
+                    if (gr.classifierQuantities && !(gr.classifierQuantities[id] > 0)) return false;
                     const classifier = window.WarehouseProfile && typeof window.WarehouseProfile.classifier === 'function' ? window.WarehouseProfile.classifier(id) : null;
                     return classifier && Array.isArray(classifier.tags) && classifier.tags.includes('high-value');
                 });
-                if (highValueClassifiers.length || gr.hasPCBA || gr.hasPhone || gr.hasLCD) {
+                if (highValueClassifiers.length) {
                     let alertHtml = `<span class="bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold flex items-center gap-1.5 shadow-sm">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                         High Value unsecured: 
@@ -4262,7 +4251,7 @@
                 let matchSearch = rowMatchesSearch(row, filterState.bin);
                 let matchZone = filterState.zone === 'ALL' || row.zone === filterState.zone;
                 let matchContamination = !filterState.contaminatedOnly || isContaminated(row);
-                let matchHighValue = !filterState.highValueOnly || (row.pcbaQty > 0 || row.phoneQty > 0 || row.lcdQty > 0);
+                let matchHighValue = !filterState.highValueOnly || window.WarehouseProfile.getHighValueClassifiers(row).length > 0;
                 let matchEmptyOnly = !filterState.emptyOnly || (row.palletCount === 0);
                 let matchHideEmpty = !filterState.hideEmpty || (row.palletCount > 0);
                 
@@ -5110,7 +5099,7 @@
                 zoneMetricsDisplay[z].masterBins++;
 
                 if (!mapStructure[z].subZones[bc]) mapStructure[z].subZones[bc] = { aisles: {} };
-                if (!mapStructure[z].subZones[bc].aisles[a]) mapStructure[z].subZones[bc].aisles[a] = { totalBins: 0, pallets: 0, rm: 0, bat: 0, pack: 0, pcba: 0, phone: 0, lcd: 0 };
+                if (!mapStructure[z].subZones[bc].aisles[a]) mapStructure[z].subZones[bc].aisles[a] = { totalBins: 0, pallets: 0, rm: 0, bat: 0, pack: 0, pcba: 0, phone: 0, lcd: 0, classifierQuantities: Object.create(null) };
 
                 mapStructure[z].subZones[bc].aisles[a].totalBins++;
                 mapStructure[z].subZones[bc].aisles[a].pallets += row.palletCount;
@@ -5120,6 +5109,10 @@
                 mapStructure[z].subZones[bc].aisles[a].pcba += row.pcbaQty;
                 mapStructure[z].subZones[bc].aisles[a].phone += row.phoneQty;
                 mapStructure[z].subZones[bc].aisles[a].lcd += row.lcdQty;
+                (window.WarehouseProfile.profile.classifiers || []).forEach(c => {
+                    const quantities = mapStructure[z].subZones[bc].aisles[a].classifierQuantities;
+                    quantities[c.id] = (quantities[c.id] || 0) + window.WarehouseProfile.getClassifierQuantity(row, c.id);
+                });
 
                 if(row.palletCount > 0) {
                     zoneMetricsDisplay[z].bins++;
@@ -5339,19 +5332,7 @@
                             adaptiveHTML = `<div class="w-full bg-white h-full flex items-center justify-center text-[8px] font-black text-slate-400">EMPTY</div>`;
                         }
                         
-                        // Keep high-value markers out of the information hierarchy:
-                        // LCD = top-left, PCBA = top-right, Phone = bottom-right.
-                        // No badge/background, so aisle name, density and capacity stay unobstructed.
-                        let specialIcons = '';
-                        if(aData.lcd > 0) {
-                            specialIcons += `<span style="position:absolute;top:3px;left:3px;z-index:10;line-height:0" title="High Value: LCD" aria-label="Contains high-value LCD">${lcdMapIcon}</span>`;
-                        }
-                        if(aData.pcba > 0) {
-                            specialIcons += `<span style="position:absolute;top:3px;right:3px;z-index:10;line-height:0" title="High Value: PCBA" aria-label="Contains high-value PCBA">${pcbaMapIcon}</span>`;
-                        }
-                        if(aData.phone > 0) {
-                            specialIcons += `<span style="position:absolute;bottom:3px;right:3px;z-index:10;line-height:0" title="High Value: Phone" aria-label="Contains high-value Phone">${phoneMapIcon}</span>`;
-                        }
+                        const specialIcons = '<span style="position:absolute;top:3px;left:3px;right:3px;display:flex;gap:3px;flex-wrap:wrap;z-index:10">' + classifierBadgeHTML(aData, true) + '</span>';
 
                         const aisleBlock = document.createElement('div');
                         aisleBlock.className = `h-20 lg:h-24 rounded-md cursor-pointer relative border-2 border-slate-800 shadow flex flex-col overflow-hidden transition-transform hover:scale-105 hover:shadow-xl`;
@@ -5500,10 +5481,7 @@
                 }).join('');
                 let expandIcon = hasDetails ? getChevronSvg(`icon-${idx}`, isOpen) : '';
 
-                let binIcons = '';
-                if (row.pcbaQty > 0) binIcons += pcbaIconPurple;
-                if (row.phoneQty > 0) binIcons += phoneIconBlue;
-                if (row.lcdQty > 0) binIcons += lcdIconCyan;
+                const binIcons = classifierBadgeHTML(row);
                 let binDisplay = binIcons ? `<div class="flex items-center gap-1.5" title="Special Items">${escapeHTML(row.bin)} ${binIcons}</div>` : escapeHTML(row.bin);
 
                 let tr = document.createElement('tr');
@@ -5536,15 +5514,10 @@
                         <thead class="bg-slate-100 text-slate-500"><tr><th class="px-3 py-2 text-center w-8"><input type="checkbox" onchange="binSelectAll(this)" title="Select/clear all visible"></th><th class="px-3 py-2 text-left">PN</th><th class="px-3 py-2 text-left">Description</th><th class="px-3 py-2 text-left">Category</th><th class="px-3 py-2 text-right">Qty</th><th class="px-3 py-2 text-left">Batch</th></tr></thead><tbody>`;
 
                     binItems.forEach(item => {
-                        let isPcba = hasProfileClassifier(item.pn, item.desc, 'pcba');
-                        let isPhone = hasProfileClassifier(item.pn, item.desc, 'phone');
-                        let isLcd = isLCD(item.pn, item.desc);
-                        let safeCat = escapeHTML(item.category);
-                        let catHighlight = isPcba ? `<span class="text-slate-800 font-bold flex items-center w-fit gap-1">${pcbaIconPurple} ${safeCat}</span>` :
-                                          (isPhone ? `<span class="text-slate-800 font-bold flex items-center w-fit gap-1">${phoneIconBlue} ${safeCat}</span>` :
-                                          (isLcd ? `<span class="text-slate-800 font-bold flex items-center w-fit gap-1">${lcdIconCyan} ${safeCat}</span>` :
-                                          `<span class="text-slate-600">${safeCat}</span>`));
-                        let rowBgClass = isPcba ? 'bg-purple-50/30' : (isPhone ? 'bg-blue-50/30' : (isLcd ? 'bg-cyan-50/30' : ''));
+                        const itemBadges = classifierBadgeHTML(window.WarehouseProfile.aggregateClassifiers([item]));
+                    const safeCat = escapeHTML(item.category);
+                    const catHighlight = '<span class="text-slate-800 flex items-center gap-1">' + itemBadges + safeCat + '</span>';
+                    const rowBgClass = itemBadges ? 'bg-purple-50/30' : '';
 
                         let rowSearch = escapeHTML([item.pn, item.desc, item.category, item.batch].join(' ').toLowerCase());
                         detHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50 ${rowBgClass}" data-search="${rowSearch}">
@@ -5681,15 +5654,10 @@
 
                 group.items.sort((a, b) => a.pn.localeCompare(b.pn, undefined, {numeric: true, sensitivity: 'base'}));
                 group.items.forEach(item => {
-                    let isPcba = hasProfileClassifier(item.pn, item.desc, 'pcba');
-                    let isPhone = hasProfileClassifier(item.pn, item.desc, 'phone');
-                    let isLcd = isLCD(item.pn, item.desc);
-                    let safeCat = escapeHTML(item.category);
-                    let catHighlight = isPcba ? `<span class="text-slate-800 font-bold flex items-center w-fit gap-1">${pcbaIconPurple} ${safeCat}</span>` :
-                                      (isPhone ? `<span class="text-slate-800 font-bold flex items-center w-fit gap-1">${phoneIconBlue} ${safeCat}</span>` :
-                                      (isLcd ? `<span class="text-slate-800 font-bold flex items-center w-fit gap-1">${lcdIconCyan} ${safeCat}</span>` :
-                                      `<span class="text-slate-600">${safeCat}</span>`));
-                    let rowBgClass = isPcba ? 'bg-purple-50/30' : (isPhone ? 'bg-blue-50/30' : (isLcd ? 'bg-cyan-50/30' : ''));
+                    const itemBadges = classifierBadgeHTML(window.WarehouseProfile.aggregateClassifiers([item]));
+                    const safeCat = escapeHTML(item.category);
+                    const catHighlight = '<span class="text-slate-800 flex items-center gap-1">' + itemBadges + safeCat + '</span>';
+                    const rowBgClass = itemBadges ? 'bg-purple-50/30' : '';
 
                     let grRowSearch = escapeHTML([item.pn, item.desc, item.category, item.batch].join(' ').toLowerCase());
                     detHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50 ${rowBgClass}" data-search="${grRowSearch}">
@@ -6286,6 +6254,8 @@
             }
             if (typeof trendMetricMeta !== 'undefined' && trendMetricMeta.grTotal) trendMetricMeta.grTotal.label = primarySpecial ? `${specialLabel} Pallets` : 'Special Location Pallets';
             renderMaterialCategoryLegend(profileApi);
+            const classifierLegend = qs('classifierLegend');
+            if (classifierLegend) classifierLegend.innerHTML = (profileApi.profile.classifiers || []).filter(c => c.tags.includes('high-value')).map(c => '<span class="flex items-center gap-1">' + classifierBadgeHTML({ classifierQuantities: { [c.id]: 1 } }) + escapeHTML(c.label || c.id) + '</span>').join('');
             const snapshotIds = typeof profileApi.getSnapshotCategories === 'function' ? profileApi.getSnapshotCategories().map(item => item.id) : [];
             if (!snapshotIds.length) throw new Error('Active warehouse profile must define at least one snapshot category.');
             SNAPSHOT_CATS = snapshotIds;

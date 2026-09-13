@@ -68,5 +68,45 @@ vm.runInNewContext(html.slice(start, end), context);
     const emptyBin = context.parseDataset('\t3\tRAW MATERIAL', 'PN-002\tRAW MATERIAL\t5\t\t');
     assert.strictEqual(emptyBin.totalMasterBins, 0);
     assert.strictEqual(emptyBin.detailed.length, 0);
+    custom.putaway = { enabled: false, rules: [] };
+    custom.classifiers = [
+        { id: 'fragile', label: 'Fragile stock', tags: ['high-value'], match: { all: [
+            { field: 'category', op: 'equals', value: 'RAW MATERIAL' },
+            { field: 'batch', op: 'equals', value: 'VIP' },
+            { field: 'hu', op: 'equals', value: 'VIP' },
+            { field: 'qty', op: 'equals', value: '5' }
+        ] } },
+        { id: 'priority', tags: ['high-value'], match: { all: [{ field: 'batch', op: 'equals', value: 'VIP' }] } },
+        { id: 'pcba', tags: [], match: { all: [{ field: 'pn', op: 'startsWith', value: 'PN' }] } }
+    ];
+    context.window.WarehouseProfile = await api.load(custom);
+    const classified = context.parseDataset('COLD-A01\t1\tRAW MATERIAL\nCOLD-A02\t1\tRAW MATERIAL', 'PN-001\tRAW MATERIAL\t5\tCOLD-A01\tVIP\nPN-002\tRAW MATERIAL\t3\tCOLD-A02\tREG\nPN-003\tRAW MATERIAL\t5\tGR-ZONE\tVIP');
+    assert.strictEqual(classified.data[0].classifierQuantities.fragile, 5);
+    assert.strictEqual(classified.data[0].classifierQuantities.priority, 5);
+    assert.strictEqual(classified.data[0].highValueQty, 5, 'overlapping classifiers must not double count high-value stock');
+    assert.strictEqual(classified.data[1].classifierQuantities.fragile, 0);
+    assert.strictEqual(classified.data[1].pcbaQty, 3, 'legacy quantity alias remains available');
+    assert.strictEqual(context.window.WarehouseProfile.getHighValueClassifiers(classified.data[1]).length, 0, 'an electronics ID alone must not imply high value');
+    assert.strictEqual(classified.grStats.classifierQuantities.fragile, 5);
+    assert.strictEqual(classified.grStats.highValueQty, 5);
+    const filterStart = html.indexOf('        function getFilteredData(');
+    vm.runInNewContext(html.slice(filterStart, html.indexOf('        function ', filterStart + 10)), context);
+    context.currentStats = classified;
+    context.filterState = { bin: '', zone: 'ALL', highValueOnly: true };
+    context.rowMatchesSearch = () => true;
+    assert.strictEqual(context.getFilteredData().length, 1);
+    assert.strictEqual(context.getFilteredData()[0].bin, 'COLD-A01');
+    const badgesStart = html.indexOf('        function classifierBadgeHTML(');
+    vm.runInNewContext(html.slice(badgesStart, html.indexOf('        function ', badgesStart + 10)), context);
+    Object.assign(context, { escapeHTML: value => String(value), pcbaMapIcon: '', phoneMapIcon: '', lcdMapIcon: '', pcbaIconPurple: '', phoneIconBlue: '', lcdIconCyan: '' });
+    assert.ok(context.classifierBadgeHTML(classified.data[0], true).includes('Fragile stock'));
+    assert.strictEqual(context.classifierBadgeHTML(classified.data[1]), '');
+    const summaryStart = html.indexOf('        function updateFilterResultCount(');
+    vm.runInNewContext(html.slice(summaryStart, html.indexOf('        function ', summaryStart + 10)), context);
+    const summary = { textContent: '' }; context.qs = () => summary;
+    context.updateFilterResultCount(1, 2);
+    assert.ok(summary.textContent.includes('Fragile stock 5'));
+    assert.ok(summary.textContent.includes('priority 5'));
+    assert.ok(!summary.textContent.includes('pcba'));
     console.log('production import integration tests passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

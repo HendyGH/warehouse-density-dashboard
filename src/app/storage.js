@@ -103,6 +103,7 @@
         refreshLegacyState() {
             if (!localInvoke) return Promise.resolve({ detected: false, config: machineCache });
             return localInvoke('read_file_named', { name: 'warehouse_state_v35.json' }).then(sharedRaw => {
+                if (sharedRaw !== '' && !parseSharedState(sharedRaw)) throw new Error('Warehouse state is damaged or has an invalid structure. Restore a trusted backup before continuing.');
                 if (machineCache.activeProfile || machineCache.activeProfilePath) return { detected: false, config: machineCache };
                 if (!sharedRaw) return { detected: false, config: machineCache };
                 const marker = markerFromSharedState(sharedRaw);

@@ -67,5 +67,10 @@ function contextFor(machineRaw, sharedRaw, sharedProfile = '') {
   assert.strictEqual(joined.context.window.MachineConfig.get('onboardingCompleted'), true);
   const corrupt = contextFor('', '', '{broken');
   await assert.rejects(corrupt.context.window.MachineConfigReady, /damaged/);
+  for (const raw of ['{broken', 'null', '[]', '42', '"text"', '   ']) {
+    const damagedState = contextFor('', raw);
+    await assert.rejects(damagedState.context.window.MachineConfigReady, /Warehouse state/);
+    assert.ok(!damagedState.calls.some(c => c.name.startsWith('write_')), 'corrupt state must not trigger migration writes');
+  }
 })().catch(error => { console.error(error); process.exitCode = 1; });
 
